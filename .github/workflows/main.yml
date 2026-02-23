@@ -21,7 +21,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        python-version: ['3.12', '3.13', '3.14']
     steps:
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
@@ -39,7 +39,7 @@ jobs:
         pip install -e .[viz]
         pip install pytest pytest-cov
     - name: Run pytest
-      if: ${{ matrix.python-version != '3.13' }}
+      # if: ${{ matrix.python-version != '3.13' }}
       run: |
         python -m pytest -svv --cov=src --cov-report=xml
     - name: Upload coverage reports to Codecov
