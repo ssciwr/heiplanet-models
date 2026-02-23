@@ -8,7 +8,7 @@ license = {text = "MIT License"}
 license-files = ["LICEN[CS]E*"]
 readme = "README.md"
 description = "Model backend for the HeiPlanet project"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 classifiers = [
   "Programming Language :: Python :: 3",
   "License :: OSI Approved :: MIT License",
