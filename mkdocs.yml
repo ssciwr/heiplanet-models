@@ -7,7 +7,7 @@ nav:
   - Creating new models: create_new_model.md
   - Existing Models:
     - models/jmodel.md
-    - models/Pmodel/pmodel.md
+    - models/pmodel.md
   - Notebooks: 
     - Example of how to use an existing model: ./sources/model_jmodel_python.ipynb
   - API Reference: api.md

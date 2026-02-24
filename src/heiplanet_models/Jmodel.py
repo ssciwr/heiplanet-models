@@ -210,6 +210,13 @@ def run_model(
         keep_attrs=True,
     ).rename(model_data.out_colname)
 
+    # R0 is a derived, dimensionless quantity, so we need to adjust attributes here.
+    r0_map = r0_map.assign_attrs(
+        long_name=model_data.out_colname,
+        standard_name="basic_reproduction_number",
+        units="-",  # R0 is dimensionless
+    )
+
     return r0_map
 
 
