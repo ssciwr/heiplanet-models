@@ -199,12 +199,17 @@ jobs:
           path: build/models.v1.json
 
       - name: Upload metadata to Seafile (optional)
-        if: github.ref == 'refs/heads/main' && secrets.SEAFILE_API_TOKEN_MODELS != '' && secrets.SEAFILE_UPLOAD_URL_MODELS != ''
+        if: github.ref == 'refs/heads/main'
         env:
           SEAFILE_API_TOKEN_MODELS: ${{ secrets.SEAFILE_API_TOKEN_MODELS }}
           SEAFILE_UPLOAD_URL_MODELS: ${{ secrets.SEAFILE_UPLOAD_URL_MODELS }}
           SEAFILE_PARENT_DIR_MODELS: ${{ vars.SEAFILE_PARENT_DIR_MODELS || '/model_metadata' }}
         run: |
+          if [ -z "${SEAFILE_API_TOKEN_MODELS}" ] || [ -z "${SEAFILE_UPLOAD_URL_MODELS}" ]; then
+            echo "Skipping Seafile upload (missing secrets)."
+            exit 0
+          fi
+
           curl --fail-with-body -X POST \
             -H "Authorization: Bearer ${SEAFILE_API_TOKEN_MODELS}" \
             -F "file=@build/models.v1.json" \
