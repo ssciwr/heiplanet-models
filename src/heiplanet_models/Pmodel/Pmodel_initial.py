@@ -17,6 +17,7 @@ import xarray as xr
 import numpy as np
 
 from heiplanet_models.Pmodel.Pmodel_input import PmodelInput
+from heiplanet_models.Pmodel.Pmodel_output import PmodelOutput
 from heiplanet_models.Pmodel.Pmodel_params import CONSTANTS_INITIAL_CONDITIONS
 
 # ---- Logger
@@ -558,3 +559,31 @@ def load_all_data(paths: dict[str, Any], etl_settings: dict[str, Any]) -> Pmodel
         temperature=da_temperature,
         temperature_mean=da_temperature_mean,
     )
+
+
+def create_model_output(
+    dataset_base_shape, initial_conditions_shape, time_step
+) -> PmodelOutput:
+
+    if len(initial_conditions_shape) != 3:
+        raise ValueError(
+            "initial_conditions must have shape " "(longitude, latitude, ode_variable)."
+        )
+
+    if len(dataset_base_shape) == 0:
+        raise ValueError("temperature_shape must contain at least one dimension.")
+
+    if time_step <= 0:
+        raise ValueError("time_step must be greater than 0.")
+
+    number_longitudes, number_latitudes, _ = dataset_base_shape
+    number_ode_variables = initial_conditions_shape[-1]
+    number_times = int(dataset_base_shape[-1] / time_step)
+
+    shape_output = (
+        number_longitudes,
+        number_latitudes,
+        number_ode_variables,
+        number_times,
+    )
+    return np.zeros(shape=shape_output, dtype=np.float64)

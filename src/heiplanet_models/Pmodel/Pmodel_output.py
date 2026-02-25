@@ -1,3 +1,5 @@
+"""Output utilities for allocating P-model simulation arrays."""
+
 from dataclasses import dataclass
 
 import numpy as np
@@ -5,24 +7,22 @@ import numpy as np
 
 @dataclass
 class PmodelOutput:
+    """Container for model output arrays.
+
+    Attributes:
+        model_output (np.ndarray): Array with shape
+            ``(longitude, latitude, ode_variable, time)``.
+    """
+
     model_output: np.ndarray
 
-
-def create_model_output(initial_conditions, temperature_shape, time_step):
-
-    number_longitudes, number_latitudes, number_ode_variables = initial_conditions.shape
-
-    number_times = int(temperature_shape[-1] / time_step)
-
-    shape_output = (
-        number_longitudes,
-        number_latitudes,
-        number_ode_variables,
-        number_times,
-    )
-
-    print(shape_output)
-
-    empty_model_output = np.zeros(shape=shape_output, dtype=np.float64)
-
-    return empty_model_output
+    def __repr__(self):
+        attr_strings = []
+        for attr, value in self.__dict__.items():
+            type_name = type(value).__name__
+            shape_str = ""
+            if hasattr(value, "shape"):
+                shape_str = f", shape={value.shape}"
+            attr_strings.append(f"\n\t{attr}: {type_name}{shape_str}")
+        attrs = ",".join(attr_strings)
+        return f"{self.__class__.__name__}({attrs})"
