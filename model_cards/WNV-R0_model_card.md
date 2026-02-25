@@ -13,7 +13,7 @@
 **Contact:** julian.heidecke@iwr.uni-heidelberg.de
 
 ## Description
-WNV-R0 estimates the a relative version of the basic reproduction number (R₀) 
+WNV-R0 estimates a relative version of the basic reproduction number (R₀) 
 for WNV transmission by Culex pipiens using ambient temperature data. 
 The model is intended for seasonal and regional temperature suitability 
 assessments rather than real-time forecasting of WNV outbreaks.
