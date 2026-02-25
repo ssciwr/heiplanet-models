@@ -1,0 +1,219 @@
+name: Build and Publish Model Metadata
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - model_cards/**
+      - .github/workflows/model-metadata-artifact.yml
+  workflow_dispatch:
+
+jobs:
+  build_metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml
+
+      - name: Build models.v1 artifact
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from typing import Any
+
+          import yaml
+
+          cards_dir = Path("model_cards")
+          out_dir = Path("build")
+          out_dir.mkdir(parents=True, exist_ok=True)
+
+          def first_nonempty(*values: Any) -> str | None:
+              for value in values:
+                  if isinstance(value, str):
+                      trimmed = value.strip()
+                      if trimmed:
+                          return trimmed
+              return None
+
+          def to_string_list(value: Any) -> list[str]:
+              if isinstance(value, list):
+                  return [
+                      item.strip()
+                      for item in value
+                      if isinstance(item, str) and item.strip()
+                  ]
+              if isinstance(value, str) and value.strip():
+                  return [value.strip()]
+              return []
+
+          def resolve_output_variable(model: dict[str, Any]) -> str:
+              explicit = first_nonempty(
+                  model.get("model_output_variable"),
+                  model.get("model-output-variable"),
+              )
+              if explicit:
+                  return explicit
+
+              output = model.get("output")
+              if isinstance(output, str) and output.strip():
+                  return output.strip()
+              if isinstance(output, list):
+                  for candidate in output:
+                      if isinstance(candidate, str) and candidate.strip():
+                          return candidate.strip()
+
+              outputs = model.get("outputs")
+              if isinstance(outputs, str) and outputs.strip():
+                  return outputs.strip()
+              if isinstance(outputs, list):
+                  for candidate in outputs:
+                      if isinstance(candidate, str) and candidate.strip():
+                          return candidate.strip()
+              if isinstance(outputs, dict):
+                  for candidate in outputs.keys():
+                      if isinstance(candidate, str) and candidate.strip():
+                          return candidate.strip()
+
+              return "R0"
+
+          def normalize_model(model: dict[str, Any], source_file: str) -> dict[str, Any] | None:
+              model_name = first_nonempty(
+                  model.get("model_name"),
+                  model.get("model-name"),
+                  model.get("modelName"),
+                  model.get("title"),
+                  model.get("id"),
+              )
+              if not model_name:
+                  return None
+
+              output_variable = resolve_output_variable(model)
+
+              output_values = to_string_list(model.get("output"))
+              if not output_values:
+                  output_values = to_string_list(model.get("outputs"))
+              if not output_values and isinstance(model.get("outputs"), dict):
+                  output_values = [
+                      key.strip()
+                      for key in model.get("outputs", {}).keys()
+                      if isinstance(key, str) and key.strip()
+                  ]
+
+              normalized_output = [
+                  output_variable,
+                  *[value for value in output_values if value != output_variable],
+              ]
+              if not normalized_output:
+                  normalized_output = ["R0"]
+
+              repo = os.environ.get("GITHUB_REPOSITORY", "ssciwr/heiplanet-models")
+              ref = os.environ.get("GITHUB_SHA") or os.environ.get("GITHUB_REF_NAME", "main")
+
+              return {
+                  "id": first_nonempty(model.get("id"), model_name) or model_name,
+                  "modelName": model_name,
+                  "title": first_nonempty(model.get("title"), model_name) or model_name,
+                  "description": first_nonempty(model.get("description"), "") or "",
+                  "output": normalized_output,
+                  "model_output_variable": output_variable,
+                  "cardYamlUrl": f"https://github.com/{repo}/blob/{ref}/model_cards/{source_file}",
+              }
+
+          discovered_models: list[dict[str, Any]] = []
+
+          yaml_paths = sorted(cards_dir.glob("*.yaml")) + sorted(cards_dir.glob("*.yml"))
+          for yaml_path in yaml_paths:
+              content = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
+              if not isinstance(content, dict):
+                  continue
+
+              candidates: list[dict[str, Any]] = []
+
+              if isinstance(content.get("models"), list):
+                  candidates.extend(
+                      item for item in content["models"] if isinstance(item, dict)
+                  )
+
+              root_looks_like_model = any(
+                  key in content
+                  for key in (
+                      "model_name",
+                      "model-name",
+                      "modelName",
+                      "id",
+                      "model_output_variable",
+                      "model-output-variable",
+                      "output",
+                      "outputs",
+                  )
+              )
+              if root_looks_like_model:
+                  candidates.append(content)
+
+              for candidate in candidates:
+                  normalized = normalize_model(candidate, yaml_path.name)
+                  if normalized:
+                      discovered_models.append(normalized)
+
+          models_by_id: dict[str, dict[str, Any]] = {}
+          for model in discovered_models:
+              models_by_id.setdefault(model["id"], model)
+
+          models = sorted(models_by_id.values(), key=lambda model: model["modelName"].lower())
+
+          if not models:
+              raise SystemExit("No models discovered in model_cards/*.ya?ml")
+
+          payload = {
+              "schema_version": "models.v1",
+              "generated_at": os.environ.get("GITHUB_RUN_ID", "local"),
+              "generated_from": os.environ.get("GITHUB_SHA", "local"),
+              "models": models,
+          }
+
+          output_path = out_dir / "models.v1.json"
+          output_path.write_text(
+              json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+          print(f"Wrote {output_path} with {len(models)} models")
+          PY
+
+      - name: Upload metadata artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: models-v1-json
+          path: build/models.v1.json
+
+      - name: Upload metadata to Seafile (optional)
+        if: github.ref == 'refs/heads/main' && secrets.SEAFILE_API_TOKEN_MODELS != '' && secrets.SEAFILE_UPLOAD_URL_MODELS != ''
+        env:
+          SEAFILE_API_TOKEN_MODELS: ${{ secrets.SEAFILE_API_TOKEN_MODELS }}
+          SEAFILE_UPLOAD_URL_MODELS: ${{ secrets.SEAFILE_UPLOAD_URL_MODELS }}
+          SEAFILE_PARENT_DIR_MODELS: ${{ vars.SEAFILE_PARENT_DIR_MODELS || '/model_metadata' }}
+        run: |
+          curl --fail-with-body -X POST \
+            -H "Authorization: Bearer ${SEAFILE_API_TOKEN_MODELS}" \
+            -F "file=@build/models.v1.json" \
+            -F "parent_dir=${SEAFILE_PARENT_DIR_MODELS}" \
+            -F "replace=1" \
+            "${SEAFILE_UPLOAD_URL_MODELS}?replace=1"
+
+      - name: Upload artifact to GitHub release (tags)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/models.v1.json
