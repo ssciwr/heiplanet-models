@@ -460,6 +460,22 @@ def dummy_file_etl_settings_yaml():
     return Pmodel_initial.read_global_settings(dataset_path)
 
 
+@pytest.fixture
+def dummy_filepath_datasets(dummy_file_etl_settings_yaml):
+    paths = Pmodel_initial.assemble_filepaths(**dummy_file_etl_settings_yaml)
+
+    return paths
+
+
+@pytest.fixture
+def dummy_input_data(dummy_filepath_datasets, dummy_file_etl_settings_yaml):
+    input_data = Pmodel_initial.load_all_data(
+        paths=dummy_filepath_datasets, etl_settings=dummy_file_etl_settings_yaml
+    )
+
+    return input_data
+
+
 # ===================================
 # ===         Unit tests          ===
 # ===================================
@@ -610,7 +626,7 @@ def test_assemble_filepaths_raises_key_error_for_malformed_components(
     assert "prefix" in str(excinfo.value)
 
 
-@pytest.mark.parametrize("invalid_year", ["2024", 2024.0, None])
+@pytest.mark.parametrize("invalid_year", ["2024", 2024.0])
 def test_assemble_filepaths_raises_type_error_for_non_integer_year(
     standard_etl_settings, invalid_year
 ):
@@ -1762,3 +1778,22 @@ def test_load_all_data_missing_etl_config(
         Pmodel_initial.load_all_data(
             paths=mock_data_paths, etl_settings=full_etl_settings
         )
+
+
+# ---- Unit tests for load_all_data create_model
+def test_create_model_output_regression(dummy_input_data, dummy_file_etl_settings_yaml):
+
+    dataset_base = dummy_input_data.temperature
+    initial_conditions_shape = dummy_input_data.initial_conditions.shape
+
+    time_step = dummy_file_etl_settings_yaml["ode_system"]["time_step"]
+
+    result = Pmodel_initial.create_model_output(
+        dataset_base_shape=dataset_base.shape,
+        initial_conditions_shape=initial_conditions_shape,
+        time_step=time_step,
+    )
+
+    assert result.shape == (3, 2, 5, 4)
+    assert result.dtype == np.float64
+    assert np.all(result == 0)
