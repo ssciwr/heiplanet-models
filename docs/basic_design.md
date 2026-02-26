@@ -53,10 +53,10 @@ This system can be serialized into a dictionary-like datastructure:
 ```yaml
     source1: 
         function_name: read_data
-        input: [] # none because sink
+        input: [] # none because source
     source2: 
         function_name: initialize_parameters
-        input: [] # none because sink 
+        input: [] # none because source 
     project_data: 
         function_name: project_data_to_map
         input: [source1, source2]
