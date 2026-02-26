@@ -1,8 +1,8 @@
-"""Initial data loading and preprocessing utilities for the OneHealth model backend.
+"""Initial data loading and preprocessing utilities for the heiplanet model backend.
 
 This module provides functions to efficiently load, preprocess, and align large
-geospatial datasets (temperature, rainfall, population) for use in the OneHealth
-model. It supports chunked reading via Dask, robust error handling, and logging.
+geospatial datasets (temperature, rainfall, population) for use in the PModel.
+It supports chunked reading via Dask, robust error handling, and logging.
 
 Typical usage example:
     model_input = load_data()
