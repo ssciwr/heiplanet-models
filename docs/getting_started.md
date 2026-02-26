@@ -2,7 +2,7 @@
 
 
 ## What is `heiplanet-models` all about?
-This package bundles the model implementation for the [heiplanet project](TODO) and provides a development platform for their maintenance and extension as well as the addition of new model code.
+This package bundles the model implementation for the heiplanet project and provides a development platform for their maintenance and extension as well as the addition of new model code.
 All models are implemented in Python using xarray, geopandas, and numpy, but additional dependencies can be added as needed. 
 
 
@@ -18,7 +18,7 @@ In this case, the new environment will be called `venv`. This can then be activa
 ```bash 
 source ./venv/bin/activate 
 ``` 
-Virtual environment are a great way to bundle the dependencies of a project, e.g., `heiplanet-models` in one place without polluting your system's python distribution or intefering with dependencies of other projects. With virtual environments, you can have an arbitrary number of isolated projects running alongside each other without interference. 
+Virtual environment are a great way to bundle the dependencies of a project, e.g., `heiplanet-models` in one place without polluting your system's python distribution or interfering with dependencies of other projects. With virtual environments, you can have an arbitrary number of isolated projects running alongside each other without interference. 
 
 
 - Install the package: 
@@ -44,7 +44,7 @@ git clone https://github.com/ssciwr/onehealth-model-backend.git
 ```bash
 pip install -e .[dev,docs]
 ```
-This will install the version of the code on the current `main` branch in `editable` mode, such that changes you make are immediatelly reflected in the importable package. It will also add additional dependencies for unit-testing and for building the documentation.
+This will install the version of the code on the current `main` branch in `editable` mode, such that changes you make are immediately reflected in the importable package. It will also add additional dependencies for unit-testing and for building the documentation.
 
 In order to be able to visualize the computational graphs of the models you use or build, you need to install the package with the `viz` option. This will install the graphviz package which will take care of the visualization. 
 
@@ -60,7 +60,7 @@ Graphviz itself has additional dependencies it needs to install. For more detail
 
 
 ## Building the documentation 
-If you want to build the documentation locally, you need to clone the repostiroy as explained above and have to install the package with the `docs` option. Then, from the root directory of the repository, execute 
+If you want to build the documentation locally, you need to clone the repository as explained above and have to install the package with the `docs` option. Then, from the root directory of the repository, execute 
 ```bash 
 mkdocs serve 
 ```
