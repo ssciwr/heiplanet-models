@@ -10,7 +10,7 @@ date_created: "2026-01-12"
 contact: julian.heidecke@iwr.uni-heidelberg.de
 
 description: >
-    WNV-R0 estimates the a relative version of the basic reproduction number (R₀) 
+    WNV-R0 estimates a relative version of the basic reproduction number (R₀) 
     for WNV transmission by Culex pipiens using ambient temperature data. 
     The model is intended for seasonal and regional temperature suitability 
     assessments rather than real-time forecasting of WNV outbreaks.
@@ -87,8 +87,8 @@ risk_mitigation:
   - Communication of limitations and uncertainty
 
 maintenance:
-   - Updates as new data become available
-   - Continued methodological updates and model extensions
+  update_policy: Updates as new data become available
+  development_approach: Continued methodological updates and model extensions
 
 datasets:
     - Laboratory experimental data on mosquito-pathogen traits compiled through 
