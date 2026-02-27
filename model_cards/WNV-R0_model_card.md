@@ -4,91 +4,99 @@
 ## Overview
 **Model Name:** WNV-R0  
 **Version:** 1.0  
-**Type:** Epidemiological (Vector–Host Compartmental Model)  
-**Task:** Basic Reproduction Number (R₀) Estimation  
-**Domain:** West Nile Virus Transmission  
+**Type:** Process-based epidemiological model
+**Task:** Thermal suitability Estimation  
+**Domain:** West Nile Virus (WNV) Transmission Potential
 
 **Organization:** HeiPlanet  
 **Date Created:** 2026-01-12  
-**Contact:** your-email@organization.com  
+**Contact:** julian.heidecke@iwr.uni-heidelberg.de
 
 ## Description
-WNV-R0 estimates the basic reproduction number (R₀) for West Nile Virus transmission
-using environmental, entomological, and host population data. The model is intended
-for seasonal and regional risk assessment rather than real-time forecasting.
+WNV-R0 estimates a relative version of the basic reproduction number (R₀) 
+for WNV transmission by Culex pipiens using ambient temperature data. 
+The model is intended for seasonal and regional temperature suitability 
+assessments rather than real-time forecasting of WNV outbreaks.
 
 ## Intended Use
 ### In Scope
-- Seasonal WNV risk assessment
-- Regional comparison of transmission potential
-- Climate and vector scenario analysis
+- Temperature-driven seasonal WNV risk assessment
+- Regional comparison of thermal suitability
+- Historical warming impact assessments on transmission potential
+- Climate scenario analysis
 - Public health preparedness planning
 
 ### Out of Scope
 - Individual risk prediction
-- Real-time outbreak detection
+- Real-time outbreak forecasting
 - Automated policy decisions
 
 ## Architecture
-- Deterministic compartmental vector–host model
-- Temperature-dependent transmission parameters
-- Environmental and seasonal forcing
+- Ross-Macdonald type relative reproduction number
+- Derived from deterministic compartmental vector–host model  
+- Temperature-dependent mosquito-pathogen parameters for Culex pipiens
 
 ## Inputs
 | Feature | Description | Units |
 |-------|------------|-------|
-| Temperature | Daily mean temperature | °C |
-| Precipitation | Daily precipitation | mm |
-| Vector Density | Mosquito abundance index | Index |
-| Host Population | Susceptible hosts | Count |
-| Seasonal Factors | Photoperiod/seasonality | Encoded |
+| Temperature | Monthly mean temperature | °C |
 
 ## Output
-- **R₀ Estimate:** Dimensionless reproduction number
+- **Relative R₀ Estimate:** Dimensionless relative reproduction number
 
 ## Training Data
-- CDC WNV Surveillance Data
-- ERA5 Climate Reanalysis
-- Entomological surveys  
+- Parameterization of the model is based on laboratory experimental data on the 
+temperature dependence of mosquito-pathogen traits
+- Temperature response curves were fitted using Bayesian hierarchical models
 
-_Preprocessing includes missing value imputation, rate transformations, and seasonal normalization._
-
-## Evaluation
-**Metrics:** RMSE, MAE, Correlation Coefficient (TBD)  
-**Testing Data:** Historical WNV outbreak records
+## Validation
+**Data:** Historical WNV outbreak records in Europe
+**Metrics:** Seasonal and geographical alignment between R0 and cases, 
+rank correlation coefficients, and overlap between lab-based and field-observed 
+"optimal" temperature for transmission
 
 ## Assumptions
-- Stable seasonal transmission dynamics
+- R₀ is a measure of long-term average transmission under constant temperatures
 - Homogeneous spatial mixing
 - No explicit modeling of interventions
+- No intra-species mosquito variability in temperature sensitivity
 
 ## Limitations
-- Data sparsity in some regions
 - Deterministic structure
-- Simplified biology and host dynamics
-- Seasonal (non–real-time) design
+- Neglects host community composition and immunity dynamics
+- Only focused on temperature-driven effects on transmission potential via mosquito-pathogen traits
+- Accurate risk predictions need to account for additional climatic factors
+- Cannot predict number of cases 
+- Cannot account for potential adaptation of mosquito populations to increasing temperatures
+- Relative R₀ cannot be interpreted as a threshold parameter like absolute R₀
 
 ## Bias & Fairness
-- Biased toward regions with better surveillance
-- Outputs should not be equated with health system capacity
+- Based on laboratory data
+- Only validated against WNV observations in Europe (and to some extent in the USA)
 
 ## Potential Harms
 - Misuse without expert review
-- Resource misallocation
+- Misinterpretation of outputs
 
 ## Risk Mitigation
-- Epidemiologist review
-- Uncertainty communication
-- Regular recalibration
+- Expert review
+- Communication of limitations and uncertainty
 
 ## Maintenance
-- Annual updates or as new data become available
-- Semantic versioning
-- Two-year deprecation window
+- Updates as new data become available
+- Continued methodological updates and model extensions
 
 ## Datasets
-- CDC West Nile Virus Activity
-- Copernicus ERA5 Climate Data
+- Laboratory experimental data on mosquito-pathogen traits compiled through 
+systematic literature review
+- Copernicus ERA5-Land Climate Data
+- ECDC human West Nile Neuroinvasive disease cases data for validation
 
 ## Publications & Related Models
-None currently listed.
+- Heidecke, J., Wallin, J., Fransson, P., Singh, P., Sjödin, H., Stiles, P. C., ... & Rocklöv, J. (2025). 
+Uncovering temperature sensitivity of West Nile virus transmission: 
+Novel computational approaches to mosquito-pathogen trait responses. 
+PLOS Computational Biology, 21(3), e1012866.
+- Heidecke, J., Fransson, P., Wallin, J., & Rocklöv, J. Thermal Biology-Informed 
+Reproduction Number Explains Spatiotemporal Patterns of West Nile Incidence in Europe. 
+Available at SSRN 5597581.
