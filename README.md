@@ -13,7 +13,7 @@ This repository consists of a collection of models that share the same infrastru
 ## Installation
 
 ### For usage
-It is strongly recommended to use a virtual environment to install packages into. This will keep the package self-contained without its dependencies polluting the system, e.g. with python venv: 
+It is strongly recommended to use a virtual environment to install packages into. This will keep the package self-contained without its dependencies polluting the system, e.g. with python venv:
 
 ```bash
 python3 -m venv .venv # creates a venv name 'venv' in a hidden directory on unix
