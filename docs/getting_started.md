@@ -15,9 +15,9 @@ python -m venv venv
 ```
 In this case, the new environment will be called `venv`. This can then be activated with:
 
-```bash 
-source ./venv/bin/activate 
-``` 
+```bash
+source ./venv/bin/activate
+```
 Virtual environments are a great way to bundle the dependencies of a project, e.g., `heiplanet-models` in one place without polluting your system's python distribution or interfering with dependencies of other projects. With virtual environments, you can have an arbitrary number of isolated projects running alongside each other without interference. 
 
 
