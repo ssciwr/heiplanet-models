@@ -11,7 +11,8 @@ This repository consists of a collection of models that share the same infrastru
 
 
 ## Installation
-## For usage
+
+### For usage
 It is strongly recommended to use a virtual environment to install packages into. This will keep the package self-contained without its dependencies polluting the system, e.g. with python venv:
 
 ```bash
@@ -36,7 +37,7 @@ pip install "heiplanet-models[viz]"
 ```
 Graphviz itself has additional dependencies it needs to install. For more details, see [here](https://github.com/xflr6/graphviz?tab=readme-ov-file#installation).
 
-## For development
+### For development
 Clone the repository
 
 ```bash
@@ -59,5 +60,3 @@ pip install -e ".[viz]"
 ```
 Please note the remark on graphviz's dependencies above.
 
-## Troubleshooting
-to be done.
