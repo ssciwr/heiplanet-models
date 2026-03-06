@@ -29,6 +29,7 @@ dependencies = [
   "cftime>=1.6.4.post1",
   "geopandas>=1.0.1",
   "scipy>=1.13.1",
+  "pydantic>=2.12.5",
 ]
 
 [project.optional-dependencies]

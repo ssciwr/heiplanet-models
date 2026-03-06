@@ -4,6 +4,7 @@ This module defines the ComputationGraph class. This class represents a model as
 
 # compatability with python 3.10+
 from __future__ import annotations
+import importlib
 
 # dask needed for parallel execution and lazy evaluation
 import dask
@@ -14,12 +15,12 @@ import distributed
 import json
 from typing import Callable, Any
 from pathlib import Path
-import inspect
-
-# internals
-from . import Jmodel
-from . import utils
 import logging
+
+from pydantic import validate_call
+
+# local imports
+from .verify import ComputationGraphConfig
 
 
 class ComputationGraph:
@@ -34,17 +35,6 @@ class ComputationGraph:
         sink_node (Delayed | None): The sink node of the computational graph, which is the final node that triggers the execution of the entire computation.
     """
 
-    module_functions: dict[str, dict[str, Callable]] = {}
-    config: dict[str, Any] = None  # Configuration for the computation
-    sink_node: Delayed | None = None  # The sink node of the computational graph
-    task_graph: dict[str, Delayed] | None = None
-    sink_node_name: str | None = None
-    scheduler: str | None = None  # The Dask scheduler to use for execution
-    default_modules: set[str] = {
-        "utils",
-        "Jmodel",
-    }  # README: we need a better way to manage default modules
-
     def __init__(self, config: dict[str, Any]):
         """Initialize the computation graph from the given configuration.
         This method verifies the configuration, loads the necessary modules, retrieves the functions from the modules, builds the computational graph, and sets the Dask scheduler.
@@ -55,19 +45,11 @@ class ComputationGraph:
         Raises:
             ValueError: If the configuration is invalid.
         """
-        config_valid, msg = self._verify_config(config)
-
-        if not config_valid:
-            raise ValueError(f"Configuration verification failed: {msg}")
-
-        self.config = config
+        conf = self._verify_config(config)
+        self.config = conf
 
         self.logger = logging.getLogger("ComputationGraph")
-        self.logger.setLevel(
-            logging.DEBUG
-            if "log_level" not in config["execution"]
-            else config["execution"]["log_level"]
-        )
+        self.logger.setLevel(conf.execution.log_level.upper())
         # load needed code.
         self.module_functions = self._get_functions_from_module(config)
 
@@ -77,7 +59,7 @@ class ComputationGraph:
         self.sink_node = self.task_graph[self.sink_node_name]
 
         # set the dask scheduler
-        self.scheduler = config["execution"]["scheduler"]
+        self.scheduler = conf.execution.scheduler
 
     def _get_functions_from_module(
         self, config: dict[str, Any]
@@ -90,40 +72,28 @@ class ComputationGraph:
         Returns:
             dict[str, dict[str, Callable]]: A dictionary mapping module names to dictionaries of function names and their corresponding callable objects.
         """
-        module_functions = {}
-        for name, spec in config["graph"].items():
+        functions = {}
+
+        for _, spec in config["graph"].items():
             module_path = Path(spec["module"]).resolve().absolute()
-            module_name = module_path.stem
-            if module_name in self.default_modules:
-                continue
-            function_name = spec["function"]
+            modulename = module_path.stem
+            funcname = spec["function"]
             try:
-                func = utils.load_name_from_module(
-                    module_name=module_name,
-                    file_path=module_path,
-                    name=function_name,
-                )
+                module = importlib.import_module(modulename)
             except Exception as e:
-                raise RuntimeError(
-                    f"Failed to load function '{function_name}' from module '{module_name}': {e}"
+                raise ValueError(f"Importing module {modulename} unsuccessful") from e
+
+            try:
+                func = getattr(module, funcname)
+            except Exception as e:
+                raise ValueError(
+                    f"Could not load name {funcname} from {modulename}"
                 ) from e
 
-            if module_name not in module_functions:
-                module_functions[module_name] = {}
-            module_functions[module_name][function_name] = func
+            if func not in functions:
+                functions[f"{modulename}.{funcname}"] = func
 
-        # add the default modules and utility functions needed
-        # README: this needs to be generalized later when we have a more stable
-        # way of handling model code
-        module_functions["Jmodel"] = {}
-        module_functions["utils"] = {}
-
-        for module in [utils, Jmodel]:
-            for name, obj in inspect.getmembers(module, inspect.isfunction):
-                if obj.__module__ == module.__name__ and name[0] != "_":
-                    module_functions[module.__name__.split(".")[-1]][name] = obj
-
-        return module_functions
+        return functions
 
     def _find_sink_node(self, config: dict[str, Any]) -> str:
         """Find the sink node in the computational graph.
@@ -223,101 +193,9 @@ class ComputationGraph:
         self.logger.debug(f"build_graph: {delayed_tasks.keys()}")
         return delayed_tasks
 
-    def _verify_computation_config(self, config: dict[str, Any]) -> tuple[bool, str]:
-        """Verify the configuration of the computational graph.
-
-        Args:
-            config (dict[str, Any]): The configuration dictionary.
-
-        Returns:
-            bool, str: A tuple containing a boolean indicating whether the configuration is valid and an error message if it is not.
-        """
-        # verify the computation structure.
-        for node, value in config.items():
-            # verify that the node is a dict
-            if value is None or not isinstance(value, dict):
-                return False, f"Node {node} is not a dict."
-
-            # all nodes that define a computation node must have the name of the function to call, a list of nodes that need to run before this one and that are used as inputs, as well as additional arguments and keyword arguments that are passed to the function. The latter two can be empty or None, but the keys must be present to make this choice explicit and distinguish it from having forgotten to specify them.
-            if any(
-                key not in value
-                for key in ["function", "input", "args", "kwargs", "module"]
-            ):
-                return (
-                    False,
-                    f"Node {node} is missing required keys. Required keys are 'function', 'input', 'args', 'kwargs', and 'module'.",
-                )
-
-            # check that the module path exists and is a valid file
-            if (
-                str(Path(value["module"]).stem) not in self.default_modules
-                and Path.exists(Path(value["module"]).resolve().absolute()) is False
-            ):
-                module_name = value["module"]
-                return (
-                    False,
-                    f"Module {module_name} for node {node} at path {Path(value['module']).resolve().absolute()} does not exist.",
-                )
-
-            # the input nodes must be a list of names of other nodes
-            if not isinstance(value["input"], list):
-                return False, f"input nodes for node {node} must be a list"
-
-            # the input nodes must be explicitly specified and must be present # in the graph somewhere, otherwise we cannot resolve them.
-            for input_node in value["input"]:
-                if input_node not in config:
-                    return (
-                        False,
-                        f"input node {input_node} of node {node} not found in graph",
-                    )
-
-            # the positional arguments and keyword arguments must be a list and a dict, respectively, or None
-            if not isinstance(value["args"], list) and value["args"] is not None:
-                return False, f"arguments for node {node} must be a list"
-
-            if not isinstance(value["kwargs"], dict) and value["kwargs"] is not None:
-                return False, f"keyword arguments for node {node} must be a dict"
-
-        return True, "Configuration is valid."
-
-    def _verify_config(self, config: dict[str, Any]) -> tuple[bool, str]:
-        """Verify the configuration dictionary.
-
-        Args:
-            config (dict[str, Any]): The configuration dictionary.
-
-        Returns:
-            bool, str: A tuple containing a boolean indicating whether the configuration is valid and an error message if it is not.
-        """
-
-        # verify the structure of the configuration file. Checks that all needed nodes are present and of the right type and within allowed parameters
-
-        # verify the high-level structure of the configuration
-        needed_high_level_keys = ["graph", "execution"]
-        if not all(key in config for key in needed_high_level_keys):
-            return (
-                False,
-                f"Configuration is missing required keys. Required keys are {needed_high_level_keys}.",
-            )
-
-        # we need to have a dask scheduler defined in the execution section...
-        if "scheduler" not in config["execution"]:
-            return False, "Execution configuration is missing 'scheduler' key."
-
-        # ... and it must be one of those that are supported by dask
-        if config["execution"]["scheduler"] not in [
-            "synchronous",
-            "threads",
-            "multiprocessing",
-            "distributed",
-        ]:
-            scheduler = config["execution"]["scheduler"]
-            return (
-                False,
-                f"Unsupported scheduler: {scheduler}. Supported schedulers are 'synchronous', 'threads', 'multiprocessing', or 'distributed'.",
-            )
-
-        return self._verify_computation_config(config["graph"])
+    @validate_call
+    def _verify_config(self, cfg: dict[str, Any]) -> ComputationGraphConfig:
+        return ComputationGraphConfig(**cfg)
 
     def execute(self, client: distributed.client.Client = None):
         """Executes the computational graph.

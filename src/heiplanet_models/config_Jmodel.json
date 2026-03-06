@@ -2,7 +2,7 @@
 "graph": {
     "setup_modeldata": {
         "function": "setup_modeldata",
-        "module": "./Jmodel",
+        "module": "Jmodel",
         "input": [],
         "args": [],
         "kwargs": {
@@ -18,21 +18,21 @@
     },
     "read_input_data": {
         "function": "read_input_data",
-        "module": "./Jmodel",
+        "module": "Jmodel",
         "input": ["setup_modeldata"],
         "args": [],
         "kwargs": {}
     },
     "run_model": {
         "function": "run_model",
-        "module": "./Jmodel",
+        "module": "Jmodel",
         "input": ["setup_modeldata", "read_input_data"],
         "args": [],
         "kwargs": {}
     },
     "store_output_data": {
         "function": "store_output_data",
-        "module": "./Jmodel",
+        "module": "Jmodel",
         "input": ["setup_modeldata", "run_model"],
         "args": [],
         "kwargs": {}
