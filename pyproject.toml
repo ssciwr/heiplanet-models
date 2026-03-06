@@ -4,7 +4,6 @@ build-backend = "hatchling.build"
 
 [project]
 name = "heiplanet-models"
-license = {text = "MIT License"}
 license-files = ["LICEN[CS]E*"]
 readme = "README.md"
 description = "Model backend for the HeiPlanet project"
@@ -64,7 +63,7 @@ packages = ["src/heiplanet_models"]
 source = "vcs"
 tag-pattern = "v(?P<version>.+)"
 
-# test config 
+# test config
 
 [tool.coverage.run]
 branch = true
@@ -74,6 +73,7 @@ omit = [
     "src/heiplanet_models/*/__init__.py",
     "src/heiplanet_models/Pmodel/run_model.py",
     "scripts/*",
+    "test/*.py"
 ]
 
 [tool.coverage.report]
