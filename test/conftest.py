@@ -4,16 +4,18 @@ import xarray as xr
 from pathlib import Path
 
 
-def make_rioxarray_testdata(
-    path: Path, valid: bool = True, resolution: int = 10
-) -> xr.Dataset:
-    if valid:
-        lon = np.linspace(-180, 180, resolution)
-        lat = np.linspace(-90, 90, resolution)
-    else:
-        lon = np.linspace(-120, 120, resolution)
-        lat = np.linspace(-70, 76, resolution)
-    data = np.random.rand(resolution, resolution) * 10
+def make_testdata_impl(path: Path, resolution: int = 10) -> xr.Dataset:
+    lon = np.linspace(-180, 180, resolution)
+    lat = np.linspace(-90, 90, resolution)
+
+    # create test data but not random so tests are reproducible
+    t_min = -25.0
+    t_max = 40.0
+    data = np.linspace(t_min, t_max, resolution * resolution).reshape(
+        (resolution, resolution)
+    )
+    # deliberately insert some NaN values to simulate missing data
+    data[10, 0] = np.nan
 
     # Create dataset with proper dimension order for geospatial data
     ds = xr.Dataset(
@@ -41,12 +43,7 @@ def make_rioxarray_testdata(
 
 @pytest.fixture
 def make_test_data(tmp_path) -> xr.Dataset:
-    return make_rioxarray_testdata(tmp_path, valid=True, resolution=50)
-
-
-@pytest.fixture
-def make_invalid_test_data(tmp_path) -> xr.Dataset:
-    return make_rioxarray_testdata(tmp_path, valid=False, resolution=50)
+    return make_testdata_impl(tmp_path, resolution=50)
 
 
 # for execution pipeline

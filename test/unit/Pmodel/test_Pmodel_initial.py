@@ -1625,20 +1625,20 @@ def test_load_all_data_happy_path(
     underlying functions.
     """
     # --- Mock all external function calls ---
-    mock_load_temp = lambda *args, **kwargs: mock_model_inputs["temperature"]
-    mock_load_rain = lambda *args, **kwargs: mock_model_inputs["rainfall"]
-    mock_load_pop = lambda *args, **kwargs: mock_model_inputs["population"]
+    mock_load_temp = lambda *args, **kwargs: mock_model_inputs["temperature"]  # noqa
+    mock_load_rain = lambda *args, **kwargs: mock_model_inputs["rainfall"]  # noqa
+    mock_load_pop = lambda *args, **kwargs: mock_model_inputs["population"]  # noqa
 
-    mock_postprocess = lambda dataset, **kwargs: mock_model_inputs[
+    mock_postprocess = lambda dataset, **kwargs: mock_model_inputs[  # noqa
         "processed_population"
     ]
 
-    mock_create_temp = lambda *args, **kwargs: (
+    mock_create_temp = lambda *args, **kwargs: (  # noqa
         mock_model_inputs["da_temp_daily"],
         mock_model_inputs["da_temp_mean"],
     )
 
-    mock_load_initial = lambda *args, **kwargs: mock_model_inputs["initial_conditions"]
+    mock_load_initial = lambda *args, **kwargs: mock_model_inputs["initial_conditions"]  # noqa
 
     monkeypatch.setattr(Pmodel_initial, "load_temperature_dataset", mock_load_temp)
     monkeypatch.setattr(Pmodel_initial, "load_rainfall_dataset", mock_load_rain)

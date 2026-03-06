@@ -143,8 +143,6 @@ def test_computation_graph_working_initialization(
     assert "utils" in computation.module_functions
 
     # 7) knows about the utils functions
-    assert "detect_csr" in computation.module_functions["utils"]
-    assert "read_geodata" in computation.module_functions["utils"]
     assert "load_module" in computation.module_functions["utils"]
     assert "load_name_from_module" in computation.module_functions["utils"]
 

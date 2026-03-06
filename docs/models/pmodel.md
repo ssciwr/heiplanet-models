@@ -167,7 +167,7 @@ $$
 
 Description: *put a description here to improve or change the docstrings.*
 
-!!! warning 
+!!! warning
     The LaTeX equation derived from the Octave code should appear as follows.
 
     $$
@@ -192,7 +192,7 @@ $$
 
 **3. Hatching fraction depending in human density and rainfall**
 
-Description: *put a description here to improve or change the docstrings.* 
+Description: *put a description here to improve or change the docstrings.*
 
 $$
 \begin{align}
@@ -213,7 +213,7 @@ $$
 
 **4. Egg development rate**
 
-Description: *put a description here to improve or change the docstrings.* 
+Description: *put a description here to improve or change the docstrings.*
 
 $$
 \begin{align}
@@ -231,7 +231,7 @@ $$
 
 **5. Egg mortality rate**
 
-Description: *put a description here to improve or change the docstrings.* 
+Description: *put a description here to improve or change the docstrings.*
 
 $$
 \begin{align}
@@ -250,9 +250,9 @@ $$
 
 **6. Spring hatching rate**
 
-Description: *put a description here to improve or change the docstrings.* 
+Description: *put a description here to improve or change the docstrings.*
 
-!!! warning 
+!!! warning
     The LaTeX equation derived from the Octave code should appear as follows.
 
     $$
@@ -276,7 +276,7 @@ $$
 
 **7. Diapausing egg mortality rate**
 
-Description: *put a description here to improve or change the docstrings.* 
+Description: *put a description here to improve or change the docstrings.*
 
 !!! warning
     The constants in the code are different than constants reported on the paper.
@@ -298,7 +298,7 @@ $$
 
 **8. Juvenile development rate**
 
-Description:  *put a description here to improve or change the docstrings.* 
+Description:  *put a description here to improve or change the docstrings.*
 
 $$
 \begin{align}
@@ -316,7 +316,7 @@ $$
 
 **9. Juvenile carrying capacity**
 
-Description:  *put a description here to improve or change the docstrings.* 
+Description:  *put a description here to improve or change the docstrings.*
 
 $$
 \begin{align}
@@ -338,7 +338,7 @@ $$
 
 **10. Juvenile mortality rate**
 
-Description: *put a description here to improve or change the docstrings.* 
+Description: *put a description here to improve or change the docstrings.*
 
 !!! warning
 
@@ -361,7 +361,7 @@ $$
 
 **11. Emerging adult development rate**
 
-Description: *put a description here to improve or change the docstrings.* 
+Description: *put a description here to improve or change the docstrings.*
 
 $$
 \begin{align}
@@ -379,14 +379,14 @@ $$
 
 **12. Adult mortality rate**
 
-Description: *put a description here to improve or change the docstrings.* 
+Description: *put a description here to improve or change the docstrings.*
 
 !!! warning
 
     The equation reported on paper do not show the exponential $exp()$ found in the Octave/Matlab code. Additionally the equation in Octave should look like this.
 
     $$
-    m_{A}(T) = 
+    m_{A}(T) =
     \begin{cases}
     -\ln\left[\,0.677\, \exp\left(-0.5 \left(\frac{T - 20.9}{13.2}\right)^{6}\right)\, T^{0.1}\,\right], & \text{if } T > 0 \\[1.5ex]
     -\ln\left[\,0.677\, \exp\left(-0.5 \left(\frac{T - 20.9}{13.2}\right)^{6}\right)\,\right], & \text{if } T \leq 0
@@ -395,12 +395,12 @@ Description: *put a description here to improve or change the docstrings.*
 
 !!! warning
 
-    $T_{\text{mean}}$ is mentioned here for first time. The possible description about this process is this one: 
-    
+    $T_{\text{mean}}$ is mentioned here for first time. The possible description about this process is this one:
+
     *"Daily time-step simulations are used to solve the model. The resulting output is first aggregated to monthly time steps and then further aggregated to yearly values. To represent diurnal temperature variation, the simulation for each day is divided into 100 time steps according to the numerical solver used (the deSolve package in R), ranging from 0.14, 0.19, …, up to 24.00 hours. The temperature at each of these time points is used to simulate daily development and mortality rates. For additional details on the simulation procedure and a simple example of the model implementation in Octave (v4.2.1), see Metelmann et al.⁵˒¹⁸. Finally, spatial aggregation at the NUTS-3 level (Europe) was performed in R version 4.1 using the raster package."*
 
     $$
-    m_{A}(T) = 
+    m_{A}(T) =
     \begin{cases}
     -\ln\left[\,0.677\, \exp\left(-0.5 \left(\frac{T - 20.9}{13.2}\right)^{6}\right)\, T^{0.1}\,\right], & \text{if } T > 0 \\[1.5ex]
     -\ln\left[\,0.677\, \exp\left(-0.5 \left(\frac{T - 20.9}{13.2}\right)^{6}\right)\,\right], & \text{if } T \leq 0
@@ -425,7 +425,7 @@ $$
 
 **13. Subsequent blood meal rate after oviposition**
 
-Description: *put a description here to improve or change the docstrings.* 
+Description: *put a description here to improve or change the docstrings.*
 
 $$
 \begin{align}
@@ -441,7 +441,7 @@ $$
 
 **14. Mortality rate associated with long distance travel and search behavior**
 
-Description: *put a description here to improve or change the docstrings.* 
+Description: *put a description here to improve or change the docstrings.*
 
 $$
 \begin{align}
@@ -457,7 +457,7 @@ $$
 
 **15. Blood fed adult development rate**
 
-Description: *put a description here to improve or change the docstrings.* 
+Description: *put a description here to improve or change the docstrings.*
 
 $$
 \begin{align}
@@ -589,14 +589,14 @@ a. Entry point name: `aedes_albopictus_model.m`
    ```
 
   2. Create a `for` loop to iterate over years. The following operations are done in each loop:
-    
+
     a. The name for each dataset is completed with the year and extension:
     ```matlab
     tmean = [tmean_prefix, num2str(years), '.nc'];
     pr = [pr_prefix, num2str(years), '.nc'];
     dens = [dens_prefix, num2str(years), '_global_0.5.nc'];
     ```
-    
+
     b. Log the year that is being processed:
     ```matlab
     year = years; % change years according to file name
@@ -609,12 +609,12 @@ a. Entry point name: `aedes_albopictus_model.m`
     - dataset `pr`: precipitation dataset
     - dataset `dens`: population density dataset
     - variable `year`: year of the dataset
-    
+
     ```matlab
     %model_run(tmax,tmin,tmean, pr,dens,year);
     model_run(tmean, pr,dens,year);            % for tmean only with NO DTR (Tmax or Tmin is not present)
     disp(['Year done: ', num2str(years)]);
-    ```  
+    ```
   3. End the program
 
 b. Name: `model_run.m`
@@ -648,7 +648,7 @@ b. Name: `model_run.m`
   ```
 
   5. Load variables from each dataset involved (`tmean`, `pr`, `dens`)
-     
+
       a. Load temperature variables and applies some preprocessing steps with `load_temp2(tmean, step_t)` function
       ```matlab
       [Temp, Tmean] = load_temp2(tmean, step_t);       % Without DTR if Tmean is only available, no Tmax or Tmin
@@ -661,7 +661,7 @@ b. Name: `model_run.m`
 
       c. Load Precipitation variable with `load_rainfall(pr)` function
       ```matlab
-      PR = load_rainfall(pr);    
+      PR = load_rainfall(pr);
       ```
 
       d. Load Latitude variable from the `tmean` dataset with the function `load_latitude(tmean)`
@@ -699,7 +699,7 @@ b. Name: `model_run.m`
       - $E_{rat}$= 0.2;
       - $E_{dens}$ = 0.01;
       - $E_{fac}$ = 0.01;
-      
+
       ```matlab
       egg_active = water_hatch(PR, DENS);
       ```
@@ -743,15 +743,15 @@ proposed in the paper.
 Input Variables:
 
 - `v`
-- `Temp` 
+- `Temp`
 - `Tmean`
 - `LAT`
 - `CC`
 - `egg_activate`
 - `step_t`
-  
+
 Process:
-  
+
   1. Calculate the **Diapause Lay**
 
      - File associated: `mosquito_dia_lay.m`
@@ -766,7 +766,7 @@ Process:
     m_{Ed}(T) = -\ln\left(  0.955 \left(-0.5 \left(\frac{T-18.8}{21.53}\right)^6 \right) \right)
     $$
 
-    - Input Variables: 
+    - Input Variables:
         - `Temp`
         - `step_t`
      - File associated: `mosq_surv_ed.m`
@@ -775,9 +775,9 @@ Process:
   4. Create a n-dimensional matrix `v_out` full of zeros.
 
   5. Create a for loop that iterates over the time:
-   
+
     5.1. Creates a temperatures vector
-		
+
     ```octave
     T = Temp(:,:,t);
     ```
@@ -791,7 +791,7 @@ Process:
     - Inputs:
         - `T`
     - File associated: `mosq_birth.m`
-  
+
     - Comments:
         - TODO: This equation is not present in the suplement material.
 
@@ -821,14 +821,14 @@ Process:
 
     5.4. Other calculations
     ```octave
-    dev_e = 1./7.1;      %original function of the model 
+    dev_e = 1./7.1;      %original function of the model
     dia_lay = diapause_lay(:,:,ceil(t/step_t));
     dia_hatch = diapause_hatch(:,:,ceil(t/step_t));
     ed_surv = ed_survival(:,:,t);
     water_hatch = egg_activate(:,:,ceil(t/step_t));
     mort_e = mosq_mort_e(T);
     mort_j = mosq_mort_j(T);
-    
+
     T = Tmean(:,:,ceil(t/step_t));
     mort_a = mosq_mort_a(T);
     ```
@@ -845,7 +845,7 @@ Process:
     if mod(t/step_t,365) == 200
         v(:,:,2) = 0;
     end
-    
+
     if mod(t,step_t) == 0
         if mod(ceil(t/step_t),30) == 0
             disp(['MOY: ', num2str(t/step_t/30)]);
@@ -914,7 +914,7 @@ $$
     | --------- | ---------------- |
     | $T$       | Temperature (°C) |
 
-- [6] Emerging adult development rate: 
+- [6] Emerging adult development rate:
 $$
 \delta_{Aem}(T) = \frac{1}{0.069T^{2} - 3.574T + 50.1}
 $$
@@ -935,7 +935,7 @@ $$
     | $T_0$     | Minimum threshold temperature (°C)         |
     | $T_m$     | Maximum threshold temperature (°C)         |
 
-- [14] Juvenile carrying capacity: 
+- [14] Juvenile carrying capacity:
 $$
 K_{J}(W,P) = \lambda\,\frac{0.1}{1 - 0.9^{t}}\sum_{x=1}^{t} 0.9^{(t-x)}\left(\alpha_{\text{rain}}W(x) + \alpha_{\text{dens}}P(x)\right)
 $$
@@ -985,7 +985,7 @@ $$
     The equation reported on paper do not show the exponential $exp()$ found in the Octave/Matlab code. Additionally the equation in Octave should look like this.
 
     $$
-    m_{A}(T) = 
+    m_{A}(T) =
     \begin{cases}
     -\ln\left[\,0.677\, \exp\left(-0.5 \left(\frac{T - 20.9}{13.2}\right)^{6}\right)\, T^{0.1}\,\right], & \text{if } T > 0 \\[1.5ex]
     -\ln\left[\,0.677\, \exp\left(-0.5 \left(\frac{T - 20.9}{13.2}\right)^{6}\right)\,\right], & \text{if } T \leq 0
@@ -1015,10 +1015,10 @@ $$
 
 
 
-- `[NR 3]` 
+- `[NR 3]`
 !!! warning
     **Missing name**
-    
+
     The following formula has been deducted from octave code
 
     $$
@@ -1032,7 +1032,7 @@ $$
 
 - [3] Spring hatching rate
 
-!!! warning 
+!!! warning
     The equation in Octave should look like this.
 
     $$
@@ -1054,7 +1054,7 @@ $$
 | $S$             | Day-light (hours)                             |
 
 - [2] (tentative) Diapausing egg proportion
-!!! warning 
+!!! warning
     The equation in Octave should look like this.
 
     $$

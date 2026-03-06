@@ -1,47 +1,45 @@
 {
 "graph": {
     "setup_modeldata": {
-        "function": "setup_modeldata", 
+        "function": "setup_modeldata",
         "module": "./Jmodel",
-        "input": [], 
+        "input": [],
         "args": [],
         "kwargs": {
-            "input": "/path/to/input_data.nc", 
-            "output": "/path/to/output_data.nc", 
+            "input": "/path/to/input_data.nc",
+            "output": "/path/to/output_data.nc",
             "r0_path": "/path/to/R0_data.csv",
             "run_mode": "forbidden",
             "grid_data_baseurl": "https://gisco-services.ec.europa.eu/distribution/v2/nuts",
-            "nuts_level": "3",
-            "resolution": "10M",
             "year": "2024",
             "temp_colname": "t2m",
             "out_colname": "R0"
         }
-    }, 
+    },
     "read_input_data": {
-        "function": "read_input_data", 
+        "function": "read_input_data",
         "module": "./Jmodel",
-        "input": ["setup_modeldata"], 
+        "input": ["setup_modeldata"],
         "args": [],
         "kwargs": {}
-    }, 
+    },
     "run_model": {
-        "function": "run_model", 
+        "function": "run_model",
         "module": "./Jmodel",
-        "input": ["setup_modeldata", "read_input_data"], 
+        "input": ["setup_modeldata", "read_input_data"],
         "args": [],
         "kwargs": {}
-    }, 
+    },
     "store_output_data": {
-        "function": "store_output_data", 
+        "function": "store_output_data",
         "module": "./Jmodel",
-        "input": ["setup_modeldata", "run_model"], 
+        "input": ["setup_modeldata", "run_model"],
         "args": [],
         "kwargs": {}
     }
-}, 
+},
 "execution": {
-    "scheduler": "synchronous", 
+    "scheduler": "synchronous",
     "log_level": "INFO"
 }
 }

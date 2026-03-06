@@ -1,0 +1,54 @@
+
+portfolio_name: HeiPlanet Vector & Disease Modeling Suite
+schema_version: "1.0"
+
+models:
+  - model_name: WNV-R0
+    version: "1.0"
+    domain: West Nile Virus
+    model_type: Epidemiological
+    primary_task: R0 Estimation
+    inputs:
+      - temperature
+      - precipitation
+      - vector_density
+      - host_population
+      - seasonal_factors
+    outputs:
+      - r0_estimate
+    intended_use:
+      - Seasonal transmission risk assessment
+      - Public health preparedness
+    limitations:
+      - Surveillance bias
+      - Seasonal (non–real-time)
+
+  - model_name: Aedes albopictus Population Model
+    version: "1.0"
+    domain: Vector Ecology
+    model_type: Ecological / Entomological
+    primary_task: Population Dynamics Estimation
+    inputs:
+      - temperature
+      - precipitation
+      - humidity
+      - habitat_area
+      - larval_density
+      - photoperiod
+    outputs:
+      - egg_density
+      - larval_density
+      - pupal_density
+      - adult_density
+      - population_growth_rate
+    intended_use:
+      - Vector surveillance and control planning
+      - Ecological forecasting
+    limitations:
+      - Data sparsity
+      - Simplified habitat representation
+
+governance:
+  organization: HeiPlanet
+  update_policy: Annual or seasonal depending on model
+  review_required: true

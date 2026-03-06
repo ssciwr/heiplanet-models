@@ -1,0 +1,28 @@
+
+model_comparison:
+  - model: WNV-R0
+    scope: Disease transmission potential
+    spatial_scale: Regional
+    temporal_scale: Seasonal
+    key_strengths:
+      - Direct epidemiological interpretability
+      - Climate-sensitive transmission dynamics
+    key_limitations:
+      - No behavioral or intervention effects
+      - Assumes homogeneous mixing
+
+  - model: Aedes albopictus Population Model
+    scope: Vector abundance and ecology
+    spatial_scale: Local to regional
+    temporal_scale: Seasonal
+    key_strengths:
+      - Detailed life-stage resolution
+      - Climate-driven population dynamics
+    key_limitations:
+      - No explicit disease transmission modeling
+      - Limited urban heterogeneity
+
+recommended_joint_use:
+  description: >
+    The Aedes albopictus Population Model can inform vector abundance inputs
+    for WNV-R0, enabling integrated vector–disease risk assessment.

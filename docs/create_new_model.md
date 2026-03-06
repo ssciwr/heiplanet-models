@@ -2,7 +2,7 @@
 This section will introduce you to the process of creating a new model. 
 
 ## Principles and mental model
-As discussed in [the basic design section](./basic_design.md) `heiplanet-models` is based on functional programming. This means, that each model is just a set of functions that can be stacked together in such ways as their signatures allow. Much like in a kid's construction kit, as long as the blocks fit togther, you can build whatever you want by stacking them together in differen ways. The 'blocks' here are the individual functions, the 'stacking together' is tieing them together into a computational graph that defines the data flow through the software, and thus the system that is modeled. Hence, `heiplanet` models are inherently modular and composed of reusable components. 
+As discussed in [the basic design section](./basic_design.md) `heiplanet-models` is based on functional programming. This means, that each model is just a set of functions that can be stacked together in such ways as their signatures allow. Much like in a kid's construction kit, as long as the blocks fit together, you can build whatever you want by stacking them together in different ways. The 'blocks' here are the individual functions, the 'stacking together' is tying them together into a computational graph that defines the data flow through the software, and thus the system that is modeled. Hence, `heiplanet` models are inherently modular and composed of reusable components. 
 Additionally, this approach makes it easy to build many versions of the same model by just changing a desired function in the graph.
 
 When building a new model, before diving into writing any code, it is therefore useful to adopt this network-based mental model (actually, many useful dynamical systems can be thought of as [finite state automatons](https://en.wikipedia.org/wiki/Finite-state_machine), graphs in which nodes represent system states and edges represent transitions between them). 
@@ -30,7 +30,7 @@ All these functions need to be explicitly accessible from a single python file, 
 
 
 ## Restrictions 
-In order ot make this work well, there need to be a couple of restrictions in place of how you should write your functional code. 
+In order to make this work well, there need to be a couple of restrictions on how you should write your functional code. 
 
 - As mentioned, make all the functions representing system states accessible through a single file. This might be something similar to a package `__init__.py` which just imports other modules, but they must be accessible from this file. 
 
@@ -195,9 +195,9 @@ graph TB
     nodeA([load_data]) --> nodeB([add])
     
     nodeB([add]) --> nodeC([multiply])
-    nodeB([add]) --> nodeD([substract])
-    nodeC([multiply]) --> nodeD([substract])
-    nodeD([substract]) --> nodeE([affine])
+    nodeB([add]) --> nodeD([subtract])
+    nodeC([multiply]) --> nodeD([subtract])
+    nodeD([subtract]) --> nodeE([affine])
     nodeE([affine]) --> nodeF([save])
 
 ```
