@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Any
 
 
@@ -75,34 +75,51 @@ class ComputationGraphConfig(BaseModel):
                 "The graph must have at least one sink node (node with no downstream dependencies)."
             )
 
+        if len(sink_nodes) > 1:
+            raise ValueError(
+                "The graph must not have more than one sink node (node with no downstream dependencies)"
+            )
+
         return list(sink_nodes)
 
-    def _check_cycles(self) -> bool: ...
+    def check_for_cycles(self, sink_node: str) -> bool:
+        # cycle: node is in the input of an upstream node, and we know we only have one sink node
+        # => we use a recursive reverse depth first search to check for cycles
 
-    @field_validator("graph")
-    def validate_graph(
-        cls, value: dict[str, ComputationGraphNode]
-    ) -> dict[str, ComputationGraphNode]:
+        def dfs_reverse(node_name, visited: list[str]) -> bool:
+            if node_name in visited:
+                return True  # cycle detected
+            visited.append(node_name)
 
-        for name, content in value.items():
+            for upstream in self.graph[node_name].input:
+                result = dfs_reverse(upstream, visited)
+                if result:
+                    return True
+
+                visited.pop()  # when call stack unspools here this will remove all added nodes of a path
+                # from the current node downwards, so that we can check other paths for cycles without interference from already visited nodes in other paths
+
+            return False
+
+        found_cycle = dfs_reverse(sink_node, [])
+        return found_cycle
+
+    @model_validator(mode="after")
+    def validate_graph(self) -> "ComputationGraphConfig":
+
+        for name, content in self.graph.items():
             for upstream in content.input:
-                if upstream not in value:
+                if upstream not in self.graph:
                     raise ValueError(
                         f"Node '{name}' has an upstream node '{upstream}' that is not defined in the graph."
                     )
-        # TODO: check for cycles in the graph
 
-        all_nodes = set(value.keys())
-        upstream_nodes = set()
-        for node in value.values():
-            upstream_nodes.update(node.input)
-        sink_nodes = all_nodes - upstream_nodes
-        if not sink_nodes:
+        sink_nodes = self.get_sink_nodes()
+
+        cycles_present = self.check_for_cycles(sink_nodes[0])
+        if cycles_present:
             raise ValueError(
-                "The graph must have at least one sink node (node with no downstream dependencies)."
+                "The graph contains cycles, which is not allowed. Please ensure the graph is acyclic."
             )
-        if len(sink_nodes) > 1:
-            raise ValueError(
-                f"The graph must have only one sink node, but found multiple: {', '.join(sink_nodes)}."
-            )
-        return value
+
+        return self
