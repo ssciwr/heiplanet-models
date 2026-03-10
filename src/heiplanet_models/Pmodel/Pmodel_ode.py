@@ -445,7 +445,7 @@ def call_function(
         if (t + 1) % time_step == 0:  # Store every 'time_step' steps
             logger.debug(f"Storing results at time step: {t}")
             if ((idx_time) % 30) == 0:  # Trigger every 30 time steps (approx. monthly)
-                logger.debug(f"Month Of Year: {int(((t)/time_step) / 30)}")
+                logger.debug(f"Month Of Year: {int(((t) / time_step) / 30)}")
             # Store non-negative values only in all the compartments
             for j in range(v_out.shape[2]):
                 v_out[..., j, idx_time] = np.maximum(state[..., j], 0)

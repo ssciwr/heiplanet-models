@@ -341,7 +341,7 @@ def main():
 
             if (t + 1) % step_t == 0:
                 if ((idx_time) % 30) == 0:
-                    logger.debug(f"MOY: {int(((t)/step_t) / 30)}")
+                    logger.debug(f"MOY: {int(((t) / step_t) / 30)}")
                 for j in range(5):
                     v_out[..., j, idx_time] = np.maximum(v[..., j], 0)
 
@@ -380,7 +380,6 @@ def main():
 
 
 if __name__ == "__main__":
-
     # a more complete loggger
     # logging.basicConfig(
     #    format="{asctime} {name}  {levelname} - {message}",

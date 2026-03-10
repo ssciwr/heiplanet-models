@@ -52,9 +52,9 @@ def create_ode_params(time_idx=0):
 
 def assert_shape_preserved(result, expected_shape):
     """Assert that result has expected shape."""
-    assert (
-        result.shape == expected_shape
-    ), f"Expected shape {expected_shape}, got {result.shape}"
+    assert result.shape == expected_shape, (
+        f"Expected shape {expected_shape}, got {result.shape}"
+    )
 
 
 def assert_all_finite(result):
@@ -351,9 +351,9 @@ def test_albopictus_ode_system_internal_nan_generation():
     # Check that the function completes without crashing
     assert result.shape == state.shape
     # The function allows -inf values when CC=0, so we check for that specific behavior
-    assert np.any(
-        np.isinf(result)
-    ), "Expected -inf values when carrying capacity is zero"
+    assert np.any(np.isinf(result)), (
+        "Expected -inf values when carrying capacity is zero"
+    )
 
 
 def test_albopictus_ode_system_parameter_unpacking(test_state):
@@ -401,9 +401,9 @@ def test_albopictus_log_ode_system_internal_nan_correction():
     # Check that the function completes without crashing
     assert result.shape == state.shape
     # The function allows -inf values when CC=0, so we check for that specific behavior
-    assert np.any(
-        np.isinf(result)
-    ), "Expected -inf values when carrying capacity is zero"
+    assert np.any(np.isinf(result)), (
+        "Expected -inf values when carrying capacity is zero"
+    )
 
 
 def test_albopictus_log_ode_system_parameter_unpacking(test_state):

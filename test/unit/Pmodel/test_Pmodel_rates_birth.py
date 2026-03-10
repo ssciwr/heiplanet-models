@@ -22,7 +22,6 @@ from heiplanet_models.Pmodel.Pmodel_params import (
 )
 
 
-
 # ---- Pytest Fixtures
 @pytest.fixture
 def mock_lay_data():
