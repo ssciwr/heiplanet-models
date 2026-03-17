@@ -16,7 +16,7 @@ from heiplanet_models.Pmodel.Pmodel_rates_development import (
     carrying_capacity,
 )
 
-from heiplanet_models.Pmodel.Pmodel_ode import call_function
+from heiplanet_models.Pmodel.Pmodel_ode import solve_system
 
 from heiplanet_models.Pmodel.Pmodel_output import (
     build_output_dataset,
@@ -77,7 +77,7 @@ def main():
         )
 
         # 7. Solve ODE system
-        ode_solution = call_function(
+        ode_solution = solve_system(
             state=model_data.initial_conditions,
             temperature=model_data.temperature,
             temperature_mean=model_data.temperature_mean,

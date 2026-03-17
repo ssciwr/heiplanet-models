@@ -16,7 +16,7 @@ from heiplanet_models.Pmodel.Pmodel_ode import (
     rk4_step,
     albopictus_ode_system,
     albopictus_log_ode_system,
-    call_function,
+    solve_system,
 )
 
 # ---- Modern NumPy Random Generator
@@ -448,7 +448,7 @@ def test_call_function_shape_preservation(
     Output time steps: 10 / 1.0 = 10
     Expected output: (lon, lat, variables, time) = (2, 2, 5, 10)
     """
-    result = call_function(
+    result = solve_system(
         state=call_function_initial_state,
         temperature=temperature_array,
         temperature_mean=temperature_mean_array,
@@ -475,7 +475,7 @@ def test_call_function_initial_state_propagation(
     The ODE solver integrates forward from the initial state, so result[..., 0]
     contains the state after the first integration step, not the initial state.
     """
-    result = call_function(
+    result = solve_system(
         call_function_initial_state,
         temperature_array,
         temperature_mean_array,
@@ -497,7 +497,7 @@ def test_call_function_integration_progression(
     call_function_test_arrays, call_function_initial_state
 ):
     """Test that integration progresses through all time steps."""
-    result = call_function(
+    result = solve_system(
         call_function_initial_state,
         call_function_test_arrays["temperature"],
         call_function_test_arrays["temperature_mean"],
@@ -516,7 +516,7 @@ def test_call_function_zero_state(call_function_test_arrays):
     """Test call_function with zero initial state."""
     state = np.zeros((2, 2, 5))  # (lon, lat, variables)
 
-    result = call_function(
+    result = solve_system(
         state,
         call_function_test_arrays["temperature"],
         call_function_test_arrays["temperature_mean"],
@@ -544,7 +544,7 @@ def test_call_function_single_time_step(call_function_initial_state, latitudes_a
         rng.random((2, 2, 1)), dims=["longitude", "latitude", "time"]
     )
 
-    result = call_function(
+    result = solve_system(
         call_function_initial_state, temp, temp_mean, latitudes_array, k, egg_act, 1.0
     )
 
@@ -576,7 +576,7 @@ def test_call_function_regression():
         population_data=model_data.population_density,
     )
 
-    ode_solution = call_function(
+    ode_solution = solve_system(
         state=model_data.initial_conditions,
         temperature=model_data.temperature,
         temperature_mean=model_data.temperature_mean,
