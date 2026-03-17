@@ -307,7 +307,7 @@ def rk4_step(
     return rk4_step_out_array
 
 
-def call_function(
+def solve_system(
     state: xr.DataArray | np.ndarray,
     temperature: np.ndarray,
     temperature_mean: np.ndarray,
