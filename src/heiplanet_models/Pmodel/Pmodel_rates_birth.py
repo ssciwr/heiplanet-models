@@ -120,15 +120,15 @@ def mosq_dia_hatch(temperature: xr.DataArray, latitude: xr.DataArray) -> xr.Data
     #    out[:, :, k] = np.mean(out[:, :, (k - PERIOD + 1) : (k + 1)], axis=2)
 
     # Efficient rolling mean using xarray
-    # temp_rolling = temperature.rolling(time=PERIOD, min_periods=PERIOD).mean().fillna(0)
+    # temperature_rolling = temperature.rolling(time=PERIOD, min_periods=PERIOD).mean().fillna(0)
     # out = temp_rolling.values
 
-    temp_rolling = temperature.rolling(time=PERIOD, min_periods=PERIOD).mean()
-    out = temp_rolling.values
-    out[:, :, : PERIOD - 1] = temperature.values[:, :, : PERIOD - 1]
+    temperature_rolling = temperature.rolling(time=PERIOD, min_periods=PERIOD).mean()
+    hatch_signal = temperature_rolling.values
+    hatch_signal[:, :, : PERIOD - 1] = temperature.values[:, :, : PERIOD - 1]
 
     # Mask values below critical temperature threshold
-    out[out < CTT] = 0
+    hatch_signal[hatch_signal < CTT] = 0
 
     days = np.arange(1, n_time + 1)
     theta = revolution_angle(days)
@@ -149,18 +149,18 @@ def mosq_dia_hatch(temperature: xr.DataArray, latitude: xr.DataArray) -> xr.Data
         daylight_matrix = np.tile(daylight, (n_longitude, 1))
 
         # Mask where daylight < CPP
-        T_help = out[:, k, :]
-        T_help[daylight_matrix < CPP] = 0
-        out[:, k, :] = T_help
+        latitude_mask = hatch_signal[:, k, :]
+        latitude_mask[daylight_matrix < CPP] = 0
+        hatch_signal[:, k, :] = latitude_mask
 
     # Set NaNs to 0
-    out = np.nan_to_num(out, nan=0.0)
+    hatch_signal = np.nan_to_num(hatch_signal, nan=0.0)
 
     # Binarize and scale
-    out[out > 0] = RATIO_DIA_HATCH
+    hatch_signal[hatch_signal > 0] = RATIO_DIA_HATCH
 
     # Return as xarray.DataArray with same dims/coords as input
-    return xr.DataArray(out, dims=temperature.dims, coords=temperature.coords)
+    return xr.DataArray(hatch_signal, dims=temperature.dims, coords=temperature.coords)
 
 
 def mosq_dia_lay(temperature: xr.DataArray, latitude: xr.DataArray) -> xr.DataArray:

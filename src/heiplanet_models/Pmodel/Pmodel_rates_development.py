@@ -29,11 +29,6 @@ def mosq_dev_j(temperature: np.ndarray) -> np.ndarray:
     CONST_3 = CONSTANTS_MOSQUITO_J["CONST_3"]
     CONST_4 = CONSTANTS_MOSQUITO_J["CONST_4"]
 
-    # TODO: Ask to remove or implement the commented code below in a separate function.
-    # # New function briere with coefficient with initial data collection, for Sandra and Zia model
-    # # Commented on purpose
-    # temperature = q*temperature*(temperature - T0 )*((Tm - temperature)**(1/2));
-
     t_out = CONST_1 - CONST_2 * temperature + CONST_3 * temperature**2
     t_out = CONST_4 / t_out
     return t_out
@@ -57,11 +52,6 @@ def mosq_dev_i(temperature: np.ndarray) -> np.ndarray:
     CONST_3 = CONSTANTS_MOSQUITO_I["CONST_3"]
     CONST_4 = CONSTANTS_MOSQUITO_I["CONST_4"]
 
-    # TODO: Ask to remove or implement the commented code below in a separate function.
-    # # New function briere with coeffiecient with initial data collection, for Sandra and Zia model
-    # # Commented on purpose
-    # temperature = q*temperature*(temperature - T0 )*((Tm - temperature)**(1/2));
-
     t_out = CONST_1 - CONST_2 * temperature + CONST_3 * temperature**2
     t_out = CONST_4 / t_out
     return t_out
@@ -81,16 +71,16 @@ def mosq_dev_e(temperature: np.ndarray) -> np.ndarray:
         ValueError: If input is not a numpy ndarray.
     """
     q = CONSTANTS_MOSQUITO_E["q"]
-    T0 = CONSTANTS_MOSQUITO_E["T0"]
-    Tm = CONSTANTS_MOSQUITO_E["Tm"]
+    temperature_min = CONSTANTS_MOSQUITO_E["T0"]
+    temperature_max = CONSTANTS_MOSQUITO_E["Tm"]
 
-    # # New function briere with coefficient with initial data collection, for Sandra and Zia model
-    t_out = q * temperature * (temperature - T0) * ((Tm - temperature) ** (1 / 2))
-
-    # TODO: Ask to remove or implement the commented code below in a separate function.
-    # Found in original code
-    # t_out = CONST_1 - CONST_2 * temperature + CONST_3 * temperature**2;
-    # t_out = CONST_4 ./ t_out;
+    # Briere function
+    t_out = (
+        q
+        * temperature
+        * (temperature - temperature_min)
+        * ((temperature_max - temperature) ** (1 / 2))
+    )
 
     return t_out
 

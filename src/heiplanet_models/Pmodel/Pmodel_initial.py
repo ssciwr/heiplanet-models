@@ -39,7 +39,7 @@ def read_global_settings(filepath_configuration_file: str) -> dict[str, Any]:
         FileNotFoundError: If the configuration file does not exist.
         yaml.YAMLError: If the YAML file cannot be parsed.
     """
-    # TODO: move to utils.py in the future
+
     with open(filepath_configuration_file, "r") as f:
         global_settings = yaml.safe_load(f)
     return global_settings
@@ -54,7 +54,6 @@ def check_all_paths_exist(path_dict: dict[str, Union[str, Path]]) -> bool:
     Returns:
         bool: True if all paths exist, False otherwise.
     """
-    # TODO: move to utils.py in the future
 
     if not path_dict:
         logger.warning("Provided path dictionary is empty.")
@@ -93,7 +92,6 @@ def assemble_filepaths(year: int | None = None, **etl_settings) -> dict[str, Pat
         KeyError: If required keys are missing in etl_settings.
         TypeError: If the year is not an integer or settings are malformed.
     """
-    # TODO: move to utils.py in the future
 
     if (year is not None) and (not isinstance(year, int)):
         logger.error(f"Year {year} is not an integer.")
