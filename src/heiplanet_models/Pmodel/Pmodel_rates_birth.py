@@ -271,7 +271,7 @@ def water_hatching(
         population_data = population_data.expand_dims(time=rainfall_data.time)
 
     population_hatch = E_DENS / (E_DENS + np.exp(-E_FAC * population_data))
-    logger.debug(f"Population values: {population_hatch.values}")
+    logger.debug(f"Population shape: {population_hatch.shape}")
 
     exp_term = np.exp(-E_VAR * (rainfall_data - E_OPT) ** 2)
     rainfall_hatch = (1 + E_0) * exp_term / (exp_term + E_0)

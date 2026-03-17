@@ -340,16 +340,6 @@ def call_function(
     diapause_hatch = mosq_dia_hatch(temperature_mean, latitudes)
     ed_survival = mosq_surv_ed(temperature, time_step)
 
-    # Prepare output array
-    # shape_output = (
-    #     state.shape[0],  # spatial dimension 1: longitudes
-    #     state.shape[1],  # spatial dimension 2: latitudes
-    #     MODEL_VARIABLES,  # compartments: eggs, diapause eggs, juveniles, immature adults, mature adults
-    #     int(temperature.shape[2] / time_step),  # time steps
-    # )
-    # v_out = np.zeros(shape=shape_output)
-    # logger.debug(f"Shape v_out:{v_out.shape}")
-
     v_out = Pmodel_initial.create_model_output(
         dataset_base_shape=temperature.shape,
         initial_conditions_shape=state.shape,
