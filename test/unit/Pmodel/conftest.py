@@ -2,7 +2,9 @@
 
 from pathlib import Path
 
+import numpy as np
 import pytest
+import xarray as xr
 
 from heiplanet_models.Pmodel.Pmodel_initial import (
     load_temperature_dataset,
@@ -16,6 +18,32 @@ from heiplanet_models.Pmodel.Pmodel_initial import (
 def test_resources_path():
     """Return the path to the test/test_resources directory."""
     return Path(__file__).parent.parent.parent / "test_resources"
+
+
+@pytest.fixture
+def rng():
+    """Seeded random generator shared by Pmodel unit tests."""
+    return np.random.default_rng(seed=42)
+
+
+@pytest.fixture
+def temp_dummy_data(test_resources_path):
+    """Load the dummy temperature DataArray from test resources."""
+    return xr.open_dataarray(test_resources_path / "temperature_dummy.nc")
+
+
+@pytest.fixture
+def dummy_file_rainfall_dataset(test_resources_path):
+    """Load the dummy rainfall DataArray from test resources."""
+    return xr.open_dataset(test_resources_path / "dataset_rainfall_dummy.nc").rainfall
+
+
+@pytest.fixture
+def dummy_file_population_dataset(test_resources_path):
+    """Load the dummy population DataArray from test resources."""
+    return xr.open_dataset(
+        test_resources_path / "dataset_population_dummy.nc"
+    ).population
 
 
 @pytest.fixture

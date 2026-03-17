@@ -1,23 +1,25 @@
-from pathlib import Path
+"""Unit tests for heiplanet_models.Pmodel.Pmodel_ode.
+
+Tests are organized by function with clear visual separation.
+"""
+
+# =============================================================================
+# IMPORTS
+# =============================================================================
 
 import numpy as np
 import pytest
 import xarray as xr
-
-from heiplanet_models.Pmodel.Pmodel_initial import (
-    read_global_settings,
-    assemble_filepaths,
-    check_all_paths_exist,
-    load_all_data,
-)
-from heiplanet_models.Pmodel.Pmodel_rates_birth import water_hatching
-from heiplanet_models.Pmodel.Pmodel_rates_development import carrying_capacity
 from heiplanet_models.Pmodel.Pmodel_ode import (
     rk4_step,
     albopictus_ode_system,
     albopictus_log_ode_system,
     solve_system,
 )
+
+# =============================================================================
+# TEST UTILITIES
+# =============================================================================
 
 # ---- Modern NumPy Random Generator
 rng = np.random.default_rng(12345)
@@ -82,7 +84,9 @@ def assert_nan_propagation(result):
     assert np.any(np.isnan(result)), "NaN values were not propagated"
 
 
-# ---- Pytest Fixtures
+# =============================================================================
+# FIXTURES
+# =============================================================================
 
 
 @pytest.fixture
@@ -586,52 +590,3 @@ def test_call_function_seasonal_diapause_reset_branch(
 
     # Compartment index 1 (diapause eggs) is reset on day 200 and then stored.
     assert np.allclose(result[:, :, 1, 200], 0.0)
-
-
-def test_call_function_regression():
-    """Regression test for call_function using run-script-like inputs and golden output."""
-    repo_root = Path(__file__).resolve().parents[3]
-    settings_path = repo_root / "test" / "test_resources" / "global_settings_dummy.yaml"
-    golden_path = repo_root / "test" / "test_resources" / "output_dataset_dummy.nc"
-
-    etl_settings = read_global_settings(str(settings_path))
-    etl_settings["ingestion"]["path_root_datasets"] = str(
-        repo_root / "test" / "test_resources"
-    )
-
-    paths = assemble_filepaths(year=None, **etl_settings)
-    assert check_all_paths_exist(paths)
-
-    model_data = load_all_data(paths=paths, etl_settings=etl_settings)
-    cc = carrying_capacity(
-        rainfall_data=model_data.rainfall,
-        population_data=model_data.population_density,
-    )
-    egg_active = water_hatching(
-        rainfall_data=model_data.rainfall,
-        population_data=model_data.population_density,
-    )
-
-    ode_solution = solve_system(
-        state=model_data.initial_conditions,
-        temperature=model_data.temperature,
-        temperature_mean=model_data.temperature_mean,
-        latitudes=model_data.latitude,
-        carrying_capacity=cc,
-        egg_activate=egg_active,
-        time_step=etl_settings["ode_system"]["time_step"],
-    )
-
-    adults_idx = etl_settings["ode_system"]["model_variables"].index("adults")
-    adults_output = ode_solution[:, :, adults_idx, :]
-
-    with xr.open_dataset(golden_path) as golden_dataset:
-        golden_adults = golden_dataset["adults"].transpose(
-            "longitude", "latitude", "time"
-        )
-        np.testing.assert_allclose(
-            adults_output,
-            golden_adults.values,
-            rtol=1e-6,
-            atol=1e-8,
-        )

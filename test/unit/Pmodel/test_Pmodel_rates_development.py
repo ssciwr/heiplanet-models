@@ -1,5 +1,11 @@
-# Standard library
-from pathlib import Path
+"""Unit tests for heiplanet_models.Pmodel.Pmodel_rates_development.
+
+Tests are organized by function with clear visual separation.
+"""
+
+# =============================================================================
+# IMPORTS
+# =============================================================================
 
 # Third-party
 import pytest
@@ -19,16 +25,9 @@ from heiplanet_models.Pmodel.Pmodel_params import (
     CONSTANTS_CARRYING_CAPACITY,
 )
 
-# -------------------
-# ---- Structure ----
-# -------------------
-#       1. pytest fixtures
-#       2. unit tests (grouped by function)
-
-
-# -----------------------------------------------------------
-# ---- Pytest Fixtures
-# -----------------------------------------------------------
+# =============================================================================
+# FIXTURES
+# =============================================================================
 
 
 @pytest.fixture
@@ -157,22 +156,6 @@ def rainfall_with_nan_fixture():
             "longitude": [30, 40],
         },
     )
-
-
-@pytest.fixture
-def dummy_file_rainfall_dataset():
-    """Loads the real rainfall dataset from test resources."""
-    resources_dir = Path(__file__).parent.parent.parent / "test_resources"
-    dataset_path = resources_dir / "dataset_rainfall_dummy.nc"
-    return xr.open_dataset(dataset_path).rainfall
-
-
-@pytest.fixture
-def dummy_file_population_dataset():
-    """Loads the real population dataset from test resources."""
-    resources_dir = Path(__file__).parent.parent.parent / "test_resources"
-    dataset_path = resources_dir / "dataset_population_dummy.nc"
-    return xr.open_dataset(dataset_path).population
 
 
 # ------------------------------------

@@ -1,6 +1,13 @@
-import pytest
+"""Unit tests for heiplanet_models.Pmodel.Pmodel_rates_birth.
 
-from pathlib import Path
+Tests are organized by function with clear visual separation.
+"""
+
+# =============================================================================
+# IMPORTS
+# =============================================================================
+
+import pytest
 
 import numpy as np
 import xarray as xr
@@ -22,7 +29,9 @@ from heiplanet_models.Pmodel.Pmodel_params import (
 )
 
 
-# ---- Pytest Fixtures
+# =============================================================================
+# FIXTURES
+# =============================================================================
 @pytest.fixture
 def mock_lay_data():
     """Provides mock xarray data for diapause lay tests for a single year."""
@@ -140,19 +149,6 @@ def mock_hatch_data_high_latitude():
 
 
 @pytest.fixture
-def resources_path():
-    """Provides the correct, absolute path to the test resources directory."""
-
-    return Path(__file__).parent.parent.parent / "test_resources"
-
-
-@pytest.fixture
-def temp_dummy_data(resources_path):
-    """Loads the dummy temperature data from a NetCDF file."""
-    return xr.open_dataarray(resources_path / "temperature_dummy.nc")
-
-
-@pytest.fixture
 def rainfall_data():
     # Create a simple rainfall DataArray: shape (time, lat, lon)
     data = np.array(
@@ -227,22 +223,6 @@ def make_da(arr, dims=None, coords=None):
     if coords is None:
         coords = {dims[0]: np.arange(arr.shape[0])}
     return xr.DataArray(arr, dims=dims, coords=coords)
-
-
-@pytest.fixture
-def dummy_file_rainfall_dataset():
-    """Loads the real rainfall dataset from test resources."""
-    resources_dir = Path(__file__).parent.parent.parent / "test_resources"
-    dataset_path = resources_dir / "dataset_rainfall_dummy.nc"
-    return xr.open_dataset(dataset_path).rainfall
-
-
-@pytest.fixture
-def dummy_file_population_dataset():
-    """Loads the real population dataset from test resources."""
-    resources_dir = Path(__file__).parent.parent.parent / "test_resources"
-    dataset_path = resources_dir / "dataset_population_dummy.nc"
-    return xr.open_dataset(dataset_path).population
 
 
 # ---- mosq_birth()

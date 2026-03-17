@@ -1,3 +1,12 @@
+"""Unit tests for heiplanet_models.Pmodel.Pmodel_rates_mortality.
+
+Tests are organized by function with clear visual separation.
+"""
+
+# =============================================================================
+# IMPORTS
+# =============================================================================
+
 import numpy as np
 import pytest
 import xarray as xr
@@ -9,12 +18,9 @@ from heiplanet_models.Pmodel.Pmodel_rates_mortality import (
     mosq_surv_ed,
 )
 
-# ---- Pytest Fixtures
-
-
-@pytest.fixture
-def rng():
-    return np.random.default_rng(seed=42)
+# =============================================================================
+# FIXTURES
+# =============================================================================
 
 
 @pytest.fixture

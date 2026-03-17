@@ -6,6 +6,10 @@ Tests use dummy NetCDF datasets located in test/test_resources:
 - temperature_dummy.nc: temperature dataset
 """
 
+# =============================================================================
+# IMPORTS
+# =============================================================================
+
 import yaml
 from pathlib import Path
 
@@ -17,9 +21,9 @@ import pandas as pd
 from heiplanet_models.Pmodel import Pmodel_initial
 
 
-# ===================================
-# ===       Pytest Fixtures       ===
-# ===================================
+# =============================================================================
+# FIXTURES
+# =============================================================================
 @pytest.fixture
 def valid_yaml_file(tmp_path):
     """Fixture that creates a valid YAML file and returns its path."""

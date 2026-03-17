@@ -1,3 +1,12 @@
+"""Unit tests for heiplanet_models.Pmodel.Pmodel_output.
+
+Tests are organized by function with clear visual separation.
+"""
+
+# =============================================================================
+# IMPORTS
+# =============================================================================
+
 import numpy as np
 import pytest
 import xarray as xr
@@ -10,7 +19,9 @@ from heiplanet_models.Pmodel.Pmodel_output import (
 )
 
 
-# ---- Pytest Fixtures
+# =============================================================================
+# FIXTURES
+# =============================================================================
 
 
 @pytest.fixture
@@ -29,7 +40,9 @@ def synthetic_state(model_input_dummy_datasets, compartments):
     )
 
 
-# ---- Tests for PmodelOutput
+# =============================================================================
+# TESTS: PmodelOutput
+# =============================================================================
 
 
 def test_pmodel_output_repr_contains_shape():
@@ -42,7 +55,9 @@ def test_pmodel_output_repr_contains_shape():
     assert "shape=(2, 3, 4, 5)" in text
 
 
-# ---- Tests for build_output_dataset
+# =============================================================================
+# TESTS: build_output_dataset
+# =============================================================================
 
 
 def test_build_output_dataset_structure(
@@ -71,7 +86,9 @@ def test_build_output_dataset_structure(
         assert output_dataset[name].shape == expected_shape
 
 
-# ---- Tests for output file utilities
+# =============================================================================
+# TESTS: output file utilities
+# =============================================================================
 
 
 def test_assemble_output_filepath_with_year(tmp_path):

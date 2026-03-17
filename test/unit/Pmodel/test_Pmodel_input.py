@@ -1,3 +1,12 @@
+"""Unit tests for heiplanet_models.Pmodel.Pmodel_input.
+
+Tests are organized by function with clear visual separation.
+"""
+
+# =============================================================================
+# IMPORTS
+# =============================================================================
+
 import pytest
 import numpy as np
 import xarray as xr
@@ -5,9 +14,9 @@ import xarray as xr
 from heiplanet_models.Pmodel.Pmodel_input import PmodelInput
 
 
-# ===================================
-# ===       Pytest Fixtures       ===
-# ===================================
+# =============================================================================
+# FIXTURES
+# =============================================================================
 @pytest.fixture
 def dummy_pmodel_input():
     """Fixture for a fully populated PmodelInput instance."""
@@ -31,38 +40,36 @@ def dummy_pmodel_input():
     )
 
 
-# ===================================
-# ===         Unit tests          ===
-# ===================================
-# ---- Unit Tests for PmodelInput
-def test_pmodelinput_instantiation_and_types(dummy_pmodel_input):
-    assert isinstance(dummy_pmodel_input, PmodelInput)
-    assert isinstance(dummy_pmodel_input.initial_conditions, np.ndarray)
-    assert isinstance(dummy_pmodel_input.latitude, xr.DataArray)
-    assert isinstance(dummy_pmodel_input.population_density, xr.DataArray)
-    assert isinstance(dummy_pmodel_input.rainfall, xr.DataArray)
-    assert isinstance(dummy_pmodel_input.temperature, xr.DataArray)
-    assert isinstance(dummy_pmodel_input.temperature_mean, xr.DataArray)
+# =============================================================================
+# TESTS: PmodelInput
+# =============================================================================
 
 
-# Test __repr__ output
-def test_pmodelinput_repr_contains_class_and_attrs(dummy_pmodel_input):
-    rep = repr(dummy_pmodel_input)
-    assert "PmodelInput" in rep
-    for attr in [
-        "initial_conditions",
-        "latitude",
-        "population_density",
-        "rainfall",
-        "temperature",
-        "temperature_mean",
-    ]:
-        assert attr in rep
+class TestPmodelInput:
+    """Test suite for PmodelInput."""
 
+    def test_instantiation_and_types(self, dummy_pmodel_input):
+        assert isinstance(dummy_pmodel_input, PmodelInput)
+        assert isinstance(dummy_pmodel_input.initial_conditions, np.ndarray)
+        assert isinstance(dummy_pmodel_input.latitude, xr.DataArray)
+        assert isinstance(dummy_pmodel_input.population_density, xr.DataArray)
+        assert isinstance(dummy_pmodel_input.rainfall, xr.DataArray)
+        assert isinstance(dummy_pmodel_input.temperature, xr.DataArray)
+        assert isinstance(dummy_pmodel_input.temperature_mean, xr.DataArray)
 
-# Test missing required attributes raises TypeError
-def test_pmodelinput_missing_required_attributes():
-    import pytest
+    def test_repr_contains_class_and_attrs(self, dummy_pmodel_input):
+        rep = repr(dummy_pmodel_input)
+        assert "PmodelInput" in rep
+        for attr in [
+            "initial_conditions",
+            "latitude",
+            "population_density",
+            "rainfall",
+            "temperature",
+            "temperature_mean",
+        ]:
+            assert attr in rep
 
-    with pytest.raises(TypeError):
-        PmodelInput()
+    def test_missing_required_attributes(self):
+        with pytest.raises(TypeError):
+            PmodelInput()
