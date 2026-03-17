@@ -1,4 +1,5 @@
 import math
+from typing import Any
 
 import pytest
 import numpy as np
@@ -126,13 +127,15 @@ def test_declination_angle_output_range():
 
 
 def test_declination_angle_string_input_raises():
+    invalid_input: Any = "invalid"
     with pytest.raises(TypeError):
-        declination_angle("invalid")
+        declination_angle(invalid_input)
 
 
 def test_declination_angle_none_input_raises():
+    invalid_input: Any = None
     with pytest.raises(TypeError):
-        declination_angle(None)
+        declination_angle(invalid_input)
 
 
 # ---- daylight_forsythe()
