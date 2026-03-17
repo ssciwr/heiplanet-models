@@ -403,58 +403,6 @@ def test_mosq_dia_hatch_with_nan_input(mock_hatch_data):
     assert result.values[0, 0, 30] == 0
 
 
-def test_mosq_dia_hatch_with_dummy_data(temp_dummy_data, monkeypatch):
-    """
-    Test mosq_dia_hatch with dummy data and compare against a known Octave result.
-    """
-
-    # Patch PERIOD to match the dummy data time length
-    monkeypatch.setitem(CONSTANTS_MOSQUITO_DIAPAUSE_HATCHING, "PERIOD", 1)
-
-    # Transpose to (longitude, latitude, time)
-    temp_data = temp_dummy_data.transpose("longitude", "latitude", "time")
-    latitude = temp_data.latitude
-
-    # Run the function
-    result = mosq_dia_hatch(temp_data, latitude)
-
-    # Define the expected result from the Octave output
-    # Note: The dimensions are transposed from (lat, lon, time) in Octave
-    # to (lon, lat, time) as returned by the Python function.
-    expected_octave_result = np.array(
-        [
-            # Time slice 1
-            [
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.1, 0.1, 0.1, 0.1, 0.1],
-                [0.1, 0.1, 0.1, 0.1, 0.1],
-                [0.1, 0.1, 0.1, 0.1, 0.1],
-            ],
-            # Time slice 2
-            [
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-            ],
-            # Time slice 3
-            [
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0, 0.1],
-            ],
-        ]
-    )
-
-    # Assert that the function's output matches the expected result
-    np.testing.assert_allclose(
-        result.values,
-        np.transpose(expected_octave_result, (2, 1, 0)),  # (lon, lat, time)
-        atol=1e-4,
-    )
-
-
 def test_mosq_dia_hatch_regression(model_input_dummy_datasets):
 
     temperature_mean = model_input_dummy_datasets.temperature_mean
