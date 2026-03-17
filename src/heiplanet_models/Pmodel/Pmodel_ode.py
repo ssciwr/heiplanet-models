@@ -308,7 +308,7 @@ def rk4_step(
 
 
 def call_function(
-    state: np.ndarray,
+    state: xr.DataArray | np.ndarray,
     temperature: np.ndarray,
     temperature_mean: np.ndarray,
     latitudes: np.ndarray,
@@ -335,6 +335,11 @@ def call_function(
     Returns:
         np.ndarray: 4D array containing the population state for each compartment, spatial location, and time step.
     """
+    # Keep xarray at the data layer and run the RK4 core on one numeric type.
+    if isinstance(state, xr.DataArray):
+        state = state.values
+    state = np.asarray(state, dtype=np.float64)
+
     # Precompute temperature-dependent rates
     diapause_lay = mosq_dia_lay(temperature_mean, latitudes)
     diapause_hatch = mosq_dia_hatch(temperature_mean, latitudes)
