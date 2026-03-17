@@ -36,8 +36,6 @@ pr_data = np.array(
     dtype=np.float64,
 )
 
-# pr_data = np.random.randint(1, 61, size=(3, 4, 5))
-
 pr = xr.Dataset(
     data_vars={
         "tp": (["time", "latitude", "longitude"], pr_data),
@@ -83,7 +81,6 @@ dens_data = np.array(
     dtype=np.float64,
 )
 
-# dens_data = np.random.randint(1, 61, size=(1, 4, 5))
 dens = xr.Dataset(
     data_vars={
         "dens": (["time", "lat", "lon"], dens_data),
@@ -144,8 +141,6 @@ temperature_data = np.array(
     ],
     dtype=np.float64,
 )
-
-# temperature_data = np.random.randint(-30, 30, size=(3, 4, 5))
 
 temperature = xr.Dataset(
     data_vars={
