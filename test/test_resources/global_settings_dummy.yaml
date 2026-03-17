@@ -1,0 +1,87 @@
+# ========================================================================
+# ======                      INGESTION SETTINGS                    ======
+# ========================================================================
+ingestion:
+    path_root_datasets: "test/test_resources"
+    
+    xarray_load_settings:
+        chunks: auto
+    
+    filename_components:
+        temperature_dataset: 
+            prefix: "dataset_temperature_dummy"
+            suffix: 
+            extension: ".nc"
+        rainfall_dataset: 
+            prefix: "dataset_rainfall_dummy"
+            suffix: 
+            extension: ".nc"
+        human_population_dataset: 
+            prefix: "dataset_population_dummy"
+            suffix: 
+            extension: ".nc"
+
+    initial_conditions:
+        file_path_initial_conditions: 
+
+
+# ========================================================================
+# ======                   TRANSFORMATION SETTINGS                  ======
+# ========================================================================
+transformation:
+    # # ---- Temperature Data
+    temperature_dataset:
+        data_variable : "temperature"
+        preprocessing:
+            names_dimensions: 
+                "time": "time"
+            dimension_order: 
+                - "longitude"
+                - "latitude"
+                - "time"
+        
+    # # ---- Rainfall Data
+    rainfall_dataset:
+        data_variable : "rainfall"
+        preprocessing:
+            dimension_order: 
+                - "longitude"
+                - "latitude"
+                - "time"
+    
+    # # ---- Human population Data
+    human_population_dataset:
+        data_variable : "population"
+        preprocessing:
+            names_dimensions: 
+                "longitude": "longitude"
+                "latitude": "latitude"
+            dimension_order: 
+                - "longitude"
+                - "latitude"
+                - "time"
+        postprocessing:
+            align_dataset: True
+
+
+# =================================================================
+# ======                   SERVING SETTINGS                  ======
+# =================================================================
+serving: 
+    path_output_datasets: "test/test_resources"
+    filename_components:
+        prefix: "Mosquito_abundance_Global_"
+        suffix: 
+        extension: ".nc"
+
+# =================================================================
+# ======                  ODE SYSTEM SETTINGS                ======
+# =================================================================
+ode_system:
+    time_step: 10
+    model_variables:
+        - "eggs"
+        - "ed"
+        - "juv"
+        - "imm"
+        - "adults"

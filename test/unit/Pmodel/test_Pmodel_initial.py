@@ -1,6 +1,6 @@
 """Pytest unit tests for Pmodel_initial.py module functions.
 
-Tests use dummy NetCDF datasets located in test/resources:
+Tests use dummy NetCDF datasets located in test/test_resources:
 - dense_dummy.nc: human population density dataset
 - pr_dummy.nc: rainfall dataset
 - temperature_dummy.nc: temperature dataset
@@ -447,7 +447,7 @@ def mock_model_inputs():
 @pytest.fixture
 def dummy_file_initial_conditions_path():
     """Loads the initial conditions dummy file dataset from test resources."""
-    resources_dir = Path(__file__).parent.parent.parent / "resources"
+    resources_dir = Path(__file__).parent.parent.parent / "test_resources"
     dataset_path = resources_dir / "initial_conditions_dummy.nc"
     return dataset_path
 
@@ -455,7 +455,7 @@ def dummy_file_initial_conditions_path():
 @pytest.fixture
 def dummy_file_etl_settings_yaml():
     """Loads the initial conditions dummy file dataset from test resources."""
-    resources_dir = Path(__file__).parent.parent.parent / "resources"
+    resources_dir = Path(__file__).parent.parent.parent / "test_resources"
     dataset_path = resources_dir / "global_settings_dummy.yaml"
     return Pmodel_initial.read_global_settings(dataset_path)
 

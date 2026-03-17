@@ -142,12 +142,8 @@ def mock_hatch_data_high_latitude():
 @pytest.fixture
 def resources_path():
     """Provides the correct, absolute path to the test resources directory."""
-    # The test file is in '.../test/Pmodel/'.
-    # The resources are in '.../test/resources/'.
-    # Path(__file__).parent gives the directory of the current test file ('.../test/Pmodel').
-    # .parent then goes up one level to '.../test/'.
-    # Finally, we join it with the 'resources' directory name.
-    return Path(__file__).parent.parent.parent / "resources"
+
+    return Path(__file__).parent.parent.parent / "test_resources"
 
 
 @pytest.fixture
@@ -236,7 +232,7 @@ def make_da(arr, dims=None, coords=None):
 @pytest.fixture
 def dummy_file_rainfall_dataset():
     """Loads the real rainfall dataset from test resources."""
-    resources_dir = Path(__file__).parent.parent.parent / "resources"
+    resources_dir = Path(__file__).parent.parent.parent / "test_resources"
     dataset_path = resources_dir / "dataset_rainfall_dummy.nc"
     return xr.open_dataset(dataset_path).rainfall
 
@@ -244,7 +240,7 @@ def dummy_file_rainfall_dataset():
 @pytest.fixture
 def dummy_file_population_dataset():
     """Loads the real population dataset from test resources."""
-    resources_dir = Path(__file__).parent.parent.parent / "resources"
+    resources_dir = Path(__file__).parent.parent.parent / "test_resources"
     dataset_path = resources_dir / "dataset_population_dummy.nc"
     return xr.open_dataset(dataset_path).population
 

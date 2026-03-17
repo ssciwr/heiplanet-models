@@ -14,8 +14,8 @@ from heiplanet_models.Pmodel.Pmodel_initial import (
 
 @pytest.fixture
 def test_resources_path():
-    """Return the path to the test/resources directory."""
-    return Path(__file__).parent.parent.parent / "resources"
+    """Return the path to the test/test_resources directory."""
+    return Path(__file__).parent.parent.parent / "test_resources"
 
 
 @pytest.fixture
