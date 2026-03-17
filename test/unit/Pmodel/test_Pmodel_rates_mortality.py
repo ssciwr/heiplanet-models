@@ -13,6 +13,11 @@ from heiplanet_models.Pmodel.Pmodel_rates_mortality import (
 
 
 @pytest.fixture
+def rng():
+    return np.random.default_rng(seed=42)
+
+
+@pytest.fixture
 def typical_temperature_array():
     arr = np.array([10, 20, 25, 30], dtype=float)
     return xr.DataArray(arr, dims=["time"])
@@ -49,8 +54,8 @@ def multidimensional_temperature_array():
 
 
 @pytest.fixture
-def typical_3d_temperature_array():
-    arr = np.random.uniform(10, 30, size=(2, 2, 4))
+def typical_3d_temperature_array(rng):
+    arr = rng.uniform(10, 30, size=(2, 2, 4))
     return xr.DataArray(arr, dims=["x", "y", "t"])
 
 
@@ -61,14 +66,14 @@ def edge_case_3d_temperature_array():
 
 
 @pytest.fixture
-def negative_3d_temperature_array():
-    arr = -np.abs(np.random.uniform(0, 100, size=(2, 2, 4)))
+def negative_3d_temperature_array(rng):
+    arr = -np.abs(rng.uniform(0, 100, size=(2, 2, 4)))
     return xr.DataArray(arr, dims=["x", "y", "t"])
 
 
 @pytest.fixture
-def large_3d_temperature_array():
-    arr = np.random.uniform(-100, 100, size=(4, 4, 10))
+def large_3d_temperature_array(rng):
+    arr = rng.uniform(-100, 100, size=(4, 4, 10))
     return xr.DataArray(arr, dims=["x", "y", "t"])
 
 
@@ -85,8 +90,8 @@ def temperature_array_4x3x2():
 
 
 @pytest.fixture
-def chunked_temperature_array():
-    arr = np.random.rand(2, 2, 2)
+def chunked_temperature_array(rng):
+    arr = rng.random((2, 2, 2))
     da = xr.DataArray(arr, dims=["x", "y", "t"])
     # Use xarray's chunk method to create a chunked DataArray (requires dask)
     # If dask is not used, simulate chunking by adding a 'chunks' attribute
