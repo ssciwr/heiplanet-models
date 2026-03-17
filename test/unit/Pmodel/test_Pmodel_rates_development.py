@@ -76,8 +76,12 @@ def population_data_time_independent_fixture():
 @pytest.fixture
 def population_data_time_dependent_fixture():
     """Provides a sample time-dependent population DataArray."""
+
+    generator = np.random.default_rng(42)
+    data = generator.standard_normal((2, 2, 3))
+
     return xr.DataArray(
-        np.random.rand(2, 2, 3),
+        data,
         dims=["longitude", "latitude", "time"],
         coords={
             "time": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]),
@@ -367,9 +371,9 @@ def test_mosq_dev_e_typical_temperatures(typical_temperature_array_e):
 
 def test_mosq_dev_e_boundary_temperatures():
     """Test mosq_dev_e with boundary temperatures T0 and Tm."""
-    T0 = CONSTANTS_MOSQUITO_E["T0"]
-    Tm = CONSTANTS_MOSQUITO_E["Tm"]
-    temps = np.array([T0, Tm])
+    temperature_min = CONSTANTS_MOSQUITO_E["T0"]
+    temperature_max = CONSTANTS_MOSQUITO_E["Tm"]
+    temps = np.array([temperature_min, temperature_max])
     result = mosq_dev_e(temps)
     expected = np.array([0.0, 0.0])
     np.testing.assert_allclose(result, expected, atol=1e-9)
@@ -405,10 +409,10 @@ def test_mosq_dev_e_multidimensional_input():
 def test_mosq_dev_e_output_consistency():
     """Test mosq_dev_e output matches manual calculation for known input."""
     q = CONSTANTS_MOSQUITO_E["q"]
-    T0 = CONSTANTS_MOSQUITO_E["T0"]
-    Tm = CONSTANTS_MOSQUITO_E["Tm"]
+    temperature_min = CONSTANTS_MOSQUITO_E["T0"]
+    temperature_max = CONSTANTS_MOSQUITO_E["Tm"]
     T = np.array([15.0, 25.0])
-    expected = q * T * (T - T0) * ((Tm - T) ** (1 / 2))
+    expected = q * T * (T - temperature_min) * ((temperature_max - T) ** (1 / 2))
     result = mosq_dev_e(T)
     np.testing.assert_allclose(result, expected)
 
@@ -454,21 +458,20 @@ def test_carrying_capacity_time_independent_population(
     assert result.shape == rainfall_data_fixture.shape
 
     # # 3. Verify the initial condition calculation
-    alpha_rain = CONSTANTS_CARRYING_CAPACITY["ALPHA_RAIN"]
-    alpha_dens = CONSTANTS_CARRYING_CAPACITY["ALPHA_DENS"]
-    lambda_val = CONSTANTS_CARRYING_CAPACITY["LAMBDA"]
+    rainfall_weight = CONSTANTS_CARRYING_CAPACITY["ALPHA_RAIN"]
+    population_weight = CONSTANTS_CARRYING_CAPACITY["ALPHA_DENS"]
+    capacity_scale_factor = CONSTANTS_CARRYING_CAPACITY["LAMBDA"]
 
-    # Expected value for the first time step (k=0)
-    # A[0] = alpha_rain * rainfall[0] + alpha_dens * population
-    # result[0] = A[0] * LAMBDA (since factor for k=0 is not applied in the loop)
-    expected_initial_A = (
-        alpha_rain * rainfall_data_fixture.isel(time=0)
-        + alpha_dens * population_data_time_independent_fixture
+    expected_initial_capacity_unscaled = (
+        rainfall_weight * rainfall_data_fixture.isel(time=0)
+        + population_weight * population_data_time_independent_fixture
     )
-    expected_initial_result = expected_initial_A * lambda_val
+    expected_initial_capacity_scaled = (
+        expected_initial_capacity_unscaled * capacity_scale_factor
+    )
 
     # Check if the calculated initial result matches the expected one
-    xr.testing.assert_allclose(result.isel(time=0), expected_initial_result)
+    xr.testing.assert_allclose(result.isel(time=0), expected_initial_capacity_scaled)
 
 
 def test_carrying_capacity_time_dependent_population(
@@ -508,32 +511,32 @@ def test_carrying_capacity_multiple_time_steps(
         rainfall_data_fixture, population_data_time_independent_fixture
     )
 
-    alpha_rain = CONSTANTS_CARRYING_CAPACITY["ALPHA_RAIN"]
-    alpha_dens = CONSTANTS_CARRYING_CAPACITY["ALPHA_DENS"]
+    rainfall_weight = CONSTANTS_CARRYING_CAPACITY["ALPHA_RAIN"]
+    population_weight = CONSTANTS_CARRYING_CAPACITY["ALPHA_DENS"]
     gamma = CONSTANTS_CARRYING_CAPACITY["GAMMA"]
     lambda_val = CONSTANTS_CARRYING_CAPACITY["LAMBDA"]
 
     # Manually calculate the first few steps
     # Step k=0
-    A0 = (
-        alpha_rain * rainfall_data_fixture.isel(time=0)
-        + alpha_dens * population_data_time_independent_fixture
+    initial_capacity_unscaled = (
+        rainfall_weight * rainfall_data_fixture.isel(time=0)
+        + population_weight * population_data_time_independent_fixture
     )
     # The scaling factor is not applied for k=0 in the implementation's loop,
     # so we only apply the final LAMBDA scaling.
-    result0 = A0 * lambda_val
+    result0 = initial_capacity_unscaled * lambda_val
     xr.testing.assert_allclose(result.isel(time=0), result0)
 
     # Step k=1
     # The recursive step uses the unscaled previous value of A.
-    A1_unscaled = (
-        gamma * A0
-        + alpha_rain * rainfall_data_fixture.isel(time=1)
-        + alpha_dens * population_data_time_independent_fixture
+    second_step_capacity_unscaled = (
+        gamma * initial_capacity_unscaled
+        + rainfall_weight * rainfall_data_fixture.isel(time=1)
+        + population_weight * population_data_time_independent_fixture
     )
     factor1 = (1 - gamma) / (1 - gamma**2)
-    A1_scaled = A1_unscaled * factor1
-    expected_result1 = A1_scaled * lambda_val
+    second_step_capacity_scaled = second_step_capacity_unscaled * factor1
+    expected_result1 = second_step_capacity_scaled * lambda_val
 
     # Assign the correct time coordinate to the expected result
     expected_result1["time"] = rainfall_data_fixture.time[1]
