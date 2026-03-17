@@ -143,7 +143,7 @@ def main():
             time_step=ETL_SETTINGS["ode_system"]["time_step"],
         )
 
-        print(v.shape)
+        logger.info("Model output shape: %s", v.shape)
 
         compartments = [
             "egg_non_diapause",

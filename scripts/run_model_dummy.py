@@ -103,20 +103,20 @@ def print_time_slices(arr):
     if isinstance(arr, xr.DataArray):
         if "time" in arr.dims:
             for i, t in enumerate(arr.time):
-                print(f"Time slice {i}):")
-                print(arr.sel(time=t).values)
-                print("-" * 40)
+                logger.info("Time slice %s:", i)
+                logger.info("%s", arr.sel(time=t).values)
+                logger.info("%s", "-" * 40)
         else:
             last_dim = arr.dims[-1]
             for i in range(arr.shape[-1]):
-                print(f"Slice {i} ({last_dim}={i}):")
-                print(arr.isel({last_dim: i}).values)
-                print("-" * 40)
+                logger.info("Slice %s (%s=%s):", i, last_dim, i)
+                logger.info("%s", arr.isel({last_dim: i}).values)
+                logger.info("%s", "-" * 40)
     elif isinstance(arr, np.ndarray):
         for i in range(arr.shape[-1]):
-            print(f"Slice {i} (last axis={i}):")
-            print(arr[..., i])
-            print("-" * 40)
+            logger.info("Slice %s (last axis=%s):", i, i)
+            logger.info("%s", arr[..., i])
+            logger.info("%s", "-" * 40)
     else:
         logger.info("Input must be an xarray.DataArray or numpy.ndarray")
 
