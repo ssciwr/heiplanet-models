@@ -20,17 +20,24 @@ from heiplanet_models.Pmodel.Pmodel_initial import (
 
 # ---- Logger
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
 
-FILEPATH_ETL_SETTINGS = "./src/heiplanet_models/Pmodel/global_settings.yaml"
 
-INITIAL_YEAR = 2023
+FILEPATH_ETL_SETTINGS = "./src/heiplanet_models/Pmodel/global_settings_dummy.yaml"
+
+INITIAL_YEAR = 2024
 FINAL_YEAR = 2024
 
 
+def configure_logging(level: int = logging.DEBUG) -> None:
+    logging.basicConfig(
+        format="[%(asctime)s] [%(levelname)-5s] [%(name)-25s] > %(message)s",
+        datefmt="%Y-%m-%d %H:%M",
+        level=level,
+        force=True,
+    )
+
+
 def main():
-    # Set logger
-    logging.basicConfig(level=logging.INFO)
 
     # Main processor
     for year in range(INITIAL_YEAR, FINAL_YEAR + 1):
@@ -42,7 +49,7 @@ def main():
         )
 
         # 2. Assemble paths
-        paths = assemble_filepaths(year, **ETL_SETTINGS)  # OK
+        paths = assemble_filepaths(year=None, **ETL_SETTINGS)  # OK
 
         # 3. Verify if all the files exist for a given year
         if check_all_paths_exist(path_dict=paths) is False:
@@ -170,10 +177,6 @@ def main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        format="{asctime} - {levelname} - {message}",
-        style="{",
-        datefmt="%Y-%m-%d %H:%M",
-        level=logging.DEBUG,
-    )
+    configure_logging()
+
     main()
