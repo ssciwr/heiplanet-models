@@ -80,7 +80,7 @@ transformation:
 serving: 
     path_output_datasets: "data/in/Pratik_datalake"
     filename_components:
-        prefix: "dummy_output_"
+        prefix: "output_python_dummy_"
         suffix: 
         extension: ".nc"
 
