@@ -552,6 +552,42 @@ def test_call_function_single_time_step(call_function_initial_state, latitudes_a
     assert_shape_preserved(result, expected_shape)
 
 
+def test_call_function_seasonal_diapause_reset_branch(
+    call_function_initial_state,
+    latitudes_array,
+):
+    """Cover seasonal reset branch where diapause egg compartment is zeroed on day 200."""
+    n_time = 201
+    temp = xr.DataArray(
+        rng.random((2, 2, n_time)), dims=["longitude", "latitude", "time"]
+    )
+    temp_mean = xr.DataArray(
+        rng.random((2, 2, n_time)),
+        dims=["longitude", "latitude", "time"],
+    )
+    carrying_capacity = xr.DataArray(
+        rng.random((2, 2, n_time)),
+        dims=["longitude", "latitude", "time"],
+    )
+    egg_activate = xr.DataArray(
+        rng.random((2, 2, n_time)),
+        dims=["longitude", "latitude", "time"],
+    )
+
+    result = solve_system(
+        state=call_function_initial_state,
+        temperature=temp,
+        temperature_mean=temp_mean,
+        latitudes=latitudes_array,
+        carrying_capacity=carrying_capacity,
+        egg_activate=egg_activate,
+        time_step=1.0,
+    )
+
+    # Compartment index 1 (diapause eggs) is reset on day 200 and then stored.
+    assert np.allclose(result[:, :, 1, 200], 0.0)
+
+
 def test_call_function_regression():
     """Regression test for call_function using run-script-like inputs and golden output."""
     repo_root = Path(__file__).resolve().parents[3]

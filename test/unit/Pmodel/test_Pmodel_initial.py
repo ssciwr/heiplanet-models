@@ -1797,3 +1797,126 @@ def test_create_model_output_regression(dummy_input_data, dummy_file_etl_setting
     assert result.shape == (3, 2, 5, 4)
     assert result.dtype == np.float64
     assert np.all(result == 0)
+
+
+def test_create_model_output_invalid_initial_conditions_shape_raises():
+    with pytest.raises(
+        ValueError,
+        match="initial_conditions must have shape \(longitude, latitude, ode_variable\)\.",
+    ):
+        Pmodel_initial.create_model_output(
+            dataset_base_shape=(3, 2, 4),
+            initial_conditions_shape=(3, 2),
+            time_step=1,
+        )
+
+
+def test_create_model_output_empty_dataset_shape_raises():
+    with pytest.raises(
+        ValueError,
+        match="temperature_shape must contain at least one dimension\.",
+    ):
+        Pmodel_initial.create_model_output(
+            dataset_base_shape=(),
+            initial_conditions_shape=(3, 2, 5),
+            time_step=1,
+        )
+
+
+def test_create_model_output_non_positive_timestep_raises():
+    with pytest.raises(ValueError, match="time_step must be greater than 0\."):
+        Pmodel_initial.create_model_output(
+            dataset_base_shape=(3, 2, 4),
+            initial_conditions_shape=(3, 2, 5),
+            time_step=0,
+        )
+
+
+def test_preprocess_dataset_transpose_exception(monkeypatch, sample_dataset):
+    def _raise_transpose_error(self, *args, **kwargs):
+        raise RuntimeError("transpose failed")
+
+    monkeypatch.setattr(xr.Dataset, "transpose", _raise_transpose_error)
+
+    with pytest.raises(RuntimeError, match="transpose failed"):
+        Pmodel_initial.preprocess_dataset(
+            dataset=sample_dataset,
+            dimension_order=("x", "y"),
+        )
+
+
+def test_load_all_data_rainfall_load_failure(
+    monkeypatch,
+    full_etl_settings,
+    mock_data_paths,
+    mock_model_inputs,
+):
+    monkeypatch.setattr(
+        Pmodel_initial,
+        "load_temperature_dataset",
+        lambda *args, **kwargs: mock_model_inputs["temperature"],
+    )
+
+    def _raise_rainfall_error(*args, **kwargs):
+        raise OSError("Rainfall load failed")
+
+    monkeypatch.setattr(Pmodel_initial, "load_rainfall_dataset", _raise_rainfall_error)
+
+    with pytest.raises(OSError, match="Rainfall load failed"):
+        Pmodel_initial.load_all_data(
+            paths=mock_data_paths, etl_settings=full_etl_settings
+        )
+
+
+def test_load_all_data_population_load_failure(
+    monkeypatch,
+    full_etl_settings,
+    mock_data_paths,
+    mock_model_inputs,
+):
+    monkeypatch.setattr(
+        Pmodel_initial,
+        "load_temperature_dataset",
+        lambda *args, **kwargs: mock_model_inputs["temperature"],
+    )
+    monkeypatch.setattr(
+        Pmodel_initial,
+        "load_rainfall_dataset",
+        lambda *args, **kwargs: mock_model_inputs["rainfall"],
+    )
+
+    def _raise_population_error(*args, **kwargs):
+        raise OSError("Population load failed")
+
+    monkeypatch.setattr(
+        Pmodel_initial,
+        "load_population_dataset",
+        _raise_population_error,
+    )
+
+    with pytest.raises(OSError, match="Population load failed"):
+        Pmodel_initial.load_all_data(
+            paths=mock_data_paths, etl_settings=full_etl_settings
+        )
+
+
+def test_load_initial_conditions_variable_extract_failure(tmp_path, mock_etl_settings):
+    filepath = tmp_path / "initial_conditions_bad.nc"
+
+    ds = xr.Dataset(
+        {
+            # Missing time dimension on purpose; isel(time=-1) should fail.
+            "S": (("longitude", "latitude"), np.ones((2, 2))),
+            "E": (("longitude", "latitude"), np.ones((2, 2))),
+            "I": (("longitude", "latitude"), np.ones((2, 2))),
+            "R": (("longitude", "latitude"), np.ones((2, 2))),
+        }
+    )
+    ds.to_netcdf(filepath)
+
+    with pytest.raises(Exception):
+        Pmodel_initial.load_initial_conditions(
+            filepath=filepath,
+            sizes=(2, 2),
+            **mock_etl_settings,
+        )
