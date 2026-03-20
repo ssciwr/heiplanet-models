@@ -26,7 +26,7 @@ from heiplanet_models.Pmodel.Pmodel_output import (
 # ---- Logger
 logger = logging.getLogger(__name__)
 
-FILEPATH_ETL_SETTINGS = "./src/heiplanet_models/Pmodel/global_settings_dummy.yaml"
+FILEPATH_ETL_SETTINGS = "./src/heiplanet_models/Pmodel/global_settings.yaml"
 INITIAL_YEAR = 2024
 FINAL_YEAR = 2024
 
@@ -52,7 +52,7 @@ def main():
         )
 
         # 2. Assemble paths
-        paths = assemble_filepaths(year=None, **ETL_SETTINGS)  # OK
+        paths = assemble_filepaths(year=year, **ETL_SETTINGS)  # OK
 
         # 3. Verify if all the files exist for a given year
         if check_all_paths_exist(path_dict=paths) is False:
