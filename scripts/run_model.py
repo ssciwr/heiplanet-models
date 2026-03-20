@@ -65,7 +65,7 @@ def main():
         logger.info(model_data)
 
         # 5. Calculate carrying capacity
-        CC = carrying_capacity(
+        carry_capacity = carrying_capacity(
             rainfall_data=model_data.rainfall,
             population_data=model_data.population_density,
         )
@@ -82,7 +82,7 @@ def main():
             temperature=model_data.temperature,
             temperature_mean=model_data.temperature_mean,
             latitudes=model_data.latitude,
-            carrying_capacity=CC,
+            carrying_capacity=carry_capacity,
             egg_activate=egg_active,
             time_step=ETL_SETTINGS["ode_system"]["time_step"],
         )
