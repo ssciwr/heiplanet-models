@@ -120,11 +120,15 @@ def mosq_dia_hatch(temperature: xr.DataArray, latitude: xr.DataArray) -> xr.Data
     #    out[:, :, k] = np.mean(out[:, :, (k - PERIOD + 1) : (k + 1)], axis=2)
 
     # Efficient rolling mean using xarray
-    temp_rolling = temperature.rolling(time=PERIOD, min_periods=PERIOD).mean().fillna(0)
-    out = temp_rolling.values
+    # temperature_rolling = temperature.rolling(time=PERIOD, min_periods=PERIOD).mean().fillna(0)
+    # out = temp_rolling.values
+
+    temperature_rolling = temperature.rolling(time=PERIOD, min_periods=PERIOD).mean()
+    hatch_signal = temperature_rolling.values
+    hatch_signal[:, :, : PERIOD - 1] = temperature.values[:, :, : PERIOD - 1]
 
     # Mask values below critical temperature threshold
-    out[out < CTT] = 0
+    hatch_signal[hatch_signal < CTT] = 0
 
     days = np.arange(1, n_time + 1)
     theta = revolution_angle(days)
@@ -145,18 +149,18 @@ def mosq_dia_hatch(temperature: xr.DataArray, latitude: xr.DataArray) -> xr.Data
         daylight_matrix = np.tile(daylight, (n_longitude, 1))
 
         # Mask where daylight < CPP
-        T_help = out[:, k, :]
-        T_help[daylight_matrix < CPP] = 0
-        out[:, k, :] = T_help
+        latitude_mask = hatch_signal[:, k, :]
+        latitude_mask[daylight_matrix < CPP] = 0
+        hatch_signal[:, k, :] = latitude_mask
 
     # Set NaNs to 0
-    out = np.nan_to_num(out, nan=0.0)
+    hatch_signal = np.nan_to_num(hatch_signal, nan=0.0)
 
     # Binarize and scale
-    out[out > 0] = RATIO_DIA_HATCH
+    hatch_signal[hatch_signal > 0] = RATIO_DIA_HATCH
 
     # Return as xarray.DataArray with same dims/coords as input
-    return xr.DataArray(out, dims=temperature.dims, coords=temperature.coords)
+    return xr.DataArray(hatch_signal, dims=temperature.dims, coords=temperature.coords)
 
 
 def mosq_dia_lay(temperature: xr.DataArray, latitude: xr.DataArray) -> xr.DataArray:
@@ -267,7 +271,7 @@ def water_hatching(
         population_data = population_data.expand_dims(time=rainfall_data.time)
 
     population_hatch = E_DENS / (E_DENS + np.exp(-E_FAC * population_data))
-    logger.debug(f"Population values: {population_hatch.values}")
+    logger.debug(f"Population shape: {population_hatch.shape}")
 
     exp_term = np.exp(-E_VAR * (rainfall_data - E_OPT) ** 2)
     rainfall_hatch = (1 + E_0) * exp_term / (exp_term + E_0)
@@ -280,20 +284,12 @@ def water_hatching(
     # Always use only the first time slice of population data for the population effect
     population_hatch_no_time = population_hatch.isel(time=0).drop_vars("time")
 
-    # Check dtype of time coordinate
-    pop_time_dtype = population_hatch.coords["time"].dtype
-    rain_time_dtype = rainfall_hatch.coords["time"].dtype
+    # Broadcast population data to match rainfall's time dimension
+    # Use assign_coords to ensure proper dimension order matching rainfall_hatch
+    population_hatch_broadcasted = population_hatch_no_time.expand_dims(
+        {"time": rainfall_hatch.coords["time"]}, axis=2
+    )
 
-    if pop_time_dtype != rain_time_dtype:
-        # Correction: broadcast using rainfall_hatch's time coordinate
-        population_hatch_broadcasted = population_hatch_no_time.expand_dims(
-            time=rainfall_hatch.coords["time"]
-        )
-    else:
-        # Dtypes match, broadcast using population_hatch's time coordinate
-        population_hatch_broadcasted = population_hatch_no_time.expand_dims(
-            time=population_hatch.coords["time"]
-        )
     # Weighted combination (element-wise)
     result = ((1 - E_RAT) * rainfall_hatch) + (E_RAT * population_hatch_broadcasted)
     logger.debug(f"Shape result water hatching: {result.shape}")

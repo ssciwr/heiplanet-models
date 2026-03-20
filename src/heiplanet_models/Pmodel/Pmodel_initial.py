@@ -17,6 +17,7 @@ import xarray as xr
 import numpy as np
 
 from heiplanet_models.Pmodel.Pmodel_input import PmodelInput
+from heiplanet_models.Pmodel.Pmodel_output import PmodelOutput
 from heiplanet_models.Pmodel.Pmodel_params import CONSTANTS_INITIAL_CONDITIONS
 
 # ---- Logger
@@ -38,7 +39,7 @@ def read_global_settings(filepath_configuration_file: str) -> dict[str, Any]:
         FileNotFoundError: If the configuration file does not exist.
         yaml.YAMLError: If the YAML file cannot be parsed.
     """
-    # TODO: move to utils.py in the future
+
     with open(filepath_configuration_file, "r") as f:
         global_settings = yaml.safe_load(f)
     return global_settings
@@ -53,7 +54,6 @@ def check_all_paths_exist(path_dict: dict[str, Union[str, Path]]) -> bool:
     Returns:
         bool: True if all paths exist, False otherwise.
     """
-    # TODO: move to utils.py in the future
 
     if not path_dict:
         logger.warning("Provided path dictionary is empty.")
@@ -77,7 +77,7 @@ def check_all_paths_exist(path_dict: dict[str, Union[str, Path]]) -> bool:
 
 
 # ---- ETL Functions
-def assemble_filepaths(year: int, **etl_settings) -> dict[str, Path]:
+def assemble_filepaths(year: int | None = None, **etl_settings) -> dict[str, Path]:
     """Assemble file paths for datasets for a given year based on ETL settings.
 
     Args:
@@ -92,20 +92,28 @@ def assemble_filepaths(year: int, **etl_settings) -> dict[str, Path]:
         KeyError: If required keys are missing in etl_settings.
         TypeError: If the year is not an integer or settings are malformed.
     """
-    # TODO: move to utils.py in the future
 
-    if not isinstance(year, int):
+    if (year is not None) and (not isinstance(year, int)):
         logger.error(f"Year {year} is not an integer.")
         raise TypeError
 
     path_root = Path(etl_settings["ingestion"]["path_root_datasets"])
     filename_components = etl_settings["ingestion"]["filename_components"]
 
-    dict_paths = {
-        dataset_name: path_root
-        / f"{comp['prefix']}{year}{comp['suffix'] or ''}{comp['extension']}"
-        for dataset_name, comp in filename_components.items()
-    }
+    if year:
+        dict_paths = {
+            dataset_name: path_root
+            / f"{comp['prefix']}{year}{comp['suffix'] or ''}{comp['extension']}"
+            for dataset_name, comp in filename_components.items()
+        }
+
+    else:
+        dict_paths = {
+            dataset_name: path_root
+            / f"{comp['prefix']}{comp['suffix'] or ''}{comp['extension']}"
+            for dataset_name, comp in filename_components.items()
+        }
+
     return dict_paths
 
 
@@ -549,3 +557,31 @@ def load_all_data(paths: dict[str, Any], etl_settings: dict[str, Any]) -> Pmodel
         temperature=da_temperature,
         temperature_mean=da_temperature_mean,
     )
+
+
+def create_model_output(
+    dataset_base_shape, initial_conditions_shape, time_step
+) -> PmodelOutput:
+
+    if len(initial_conditions_shape) != 3:
+        raise ValueError(
+            "initial_conditions must have shape (longitude, latitude, ode_variable)."
+        )
+
+    if len(dataset_base_shape) == 0:
+        raise ValueError("temperature_shape must contain at least one dimension.")
+
+    if time_step <= 0:
+        raise ValueError("time_step must be greater than 0.")
+
+    number_longitudes, number_latitudes, _ = dataset_base_shape
+    number_ode_variables = initial_conditions_shape[-1]
+    number_times = int(dataset_base_shape[-1] / time_step)
+
+    shape_output = (
+        number_longitudes,
+        number_latitudes,
+        number_ode_variables,
+        number_times,
+    )
+    return np.zeros(shape=shape_output, dtype=np.float64)

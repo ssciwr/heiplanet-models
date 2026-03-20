@@ -2,27 +2,27 @@
 # ======                      INGESTION SETTINGS                    ======
 # ========================================================================
 ingestion:
-    path_root_datasets: "data/in/Pratik_datalake"
+    path_root_datasets: "test/test_resources"
     
     xarray_load_settings:
         chunks: auto
     
     filename_components:
         temperature_dataset: 
-            prefix: "ERA5land_global_t2m_daily_0.5_"
+            prefix: "dataset_temperature_dummy"
             suffix: 
             extension: ".nc"
         rainfall_dataset: 
-            prefix: "ERA5land_global_tp_daily_0.5_"
+            prefix: "dataset_rainfall_dummy"
             suffix: 
             extension: ".nc"
         human_population_dataset: 
-            prefix: "pop_dens_"
-            suffix: "_global_0.5"
+            prefix: "dataset_population_dummy"
+            suffix: 
             extension: ".nc"
 
     initial_conditions:
-        file_path_initial_conditions:
+        file_path_initial_conditions: 
 
 
 # ========================================================================
@@ -31,10 +31,10 @@ ingestion:
 transformation:
     # # ---- Temperature Data
     temperature_dataset:
-        data_variable : "t2m"
+        data_variable : "temperature"
         preprocessing:
             names_dimensions: 
-                "valid_time": "time"
+                "time": "time"
             dimension_order: 
                 - "longitude"
                 - "latitude"
@@ -42,7 +42,7 @@ transformation:
         
     # # ---- Rainfall Data
     rainfall_dataset:
-        data_variable : "tp"
+        data_variable : "rainfall"
         preprocessing:
             dimension_order: 
                 - "longitude"
@@ -51,11 +51,11 @@ transformation:
     
     # # ---- Human population Data
     human_population_dataset:
-        data_variable : "dens"
+        data_variable : "population"
         preprocessing:
             names_dimensions: 
-                "lon": "longitude"
-                "lat": "latitude"
+                "longitude": "longitude"
+                "latitude": "latitude"
             dimension_order: 
                 - "longitude"
                 - "latitude"
@@ -68,7 +68,7 @@ transformation:
 # ======                   SERVING SETTINGS                  ======
 # =================================================================
 serving: 
-    path_output_datasets: "data/in/Pratik_datalake"
+    path_output_datasets: "test/test_resources"
     filename_components:
         prefix: "Mosquito_abundance_Global_"
         suffix: 
@@ -85,4 +85,3 @@ ode_system:
         - "juv"
         - "imm"
         - "adults"
-    

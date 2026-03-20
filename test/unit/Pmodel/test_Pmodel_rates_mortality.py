@@ -1,3 +1,12 @@
+"""Unit tests for heiplanet_models.Pmodel.Pmodel_rates_mortality.
+
+Tests are organized by function with clear visual separation.
+"""
+
+# =============================================================================
+# IMPORTS
+# =============================================================================
+
 import numpy as np
 import pytest
 import xarray as xr
@@ -9,7 +18,9 @@ from heiplanet_models.Pmodel.Pmodel_rates_mortality import (
     mosq_surv_ed,
 )
 
-# ---- Pytest Fixtures
+# =============================================================================
+# FIXTURES
+# =============================================================================
 
 
 @pytest.fixture
@@ -49,8 +60,8 @@ def multidimensional_temperature_array():
 
 
 @pytest.fixture
-def typical_3d_temperature_array():
-    arr = np.random.uniform(10, 30, size=(2, 2, 4))
+def typical_3d_temperature_array(rng):
+    arr = rng.uniform(10, 30, size=(2, 2, 4))
     return xr.DataArray(arr, dims=["x", "y", "t"])
 
 
@@ -61,14 +72,14 @@ def edge_case_3d_temperature_array():
 
 
 @pytest.fixture
-def negative_3d_temperature_array():
-    arr = -np.abs(np.random.uniform(0, 100, size=(2, 2, 4)))
+def negative_3d_temperature_array(rng):
+    arr = -np.abs(rng.uniform(0, 100, size=(2, 2, 4)))
     return xr.DataArray(arr, dims=["x", "y", "t"])
 
 
 @pytest.fixture
-def large_3d_temperature_array():
-    arr = np.random.uniform(-100, 100, size=(4, 4, 10))
+def large_3d_temperature_array(rng):
+    arr = rng.uniform(-100, 100, size=(4, 4, 10))
     return xr.DataArray(arr, dims=["x", "y", "t"])
 
 
@@ -85,8 +96,8 @@ def temperature_array_4x3x2():
 
 
 @pytest.fixture
-def chunked_temperature_array():
-    arr = np.random.rand(2, 2, 2)
+def chunked_temperature_array(rng):
+    arr = rng.random((2, 2, 2))
     da = xr.DataArray(arr, dims=["x", "y", "t"])
     # Use xarray's chunk method to create a chunked DataArray (requires dask)
     # If dask is not used, simulate chunking by adding a 'chunks' attribute
@@ -329,3 +340,22 @@ def test_mosq_surv_ed_chunking(chunked_temperature_array):
     result = mosq_surv_ed(chunked_temperature_array)
     assert isinstance(result, xr.DataArray)
     assert result.shape == chunked_temperature_array.shape
+
+
+def test_mosq_surv_ed_regression(model_input_dummy_datasets, test_etl_settings):
+
+    temperature = model_input_dummy_datasets.temperature
+    time_step = test_etl_settings["ode_system"]["time_step"]
+
+    result = mosq_surv_ed(temperature=temperature, step_t=time_step)
+
+    base_slice = np.array([[0.8845, 0.9236], [0.9045, 0.9272], [0.9167, 0.9289]])
+
+    # Tile the array to create 40 copies along the third dimension
+    expected_values = np.tile(base_slice[:, :, np.newaxis], (1, 1, 40))
+
+    # Create xarray DataArray with same structure as result
+    expected = xr.DataArray(expected_values, dims=result.dims, coords=result.coords)
+
+    # Compare result against expected values
+    xr.testing.assert_allclose(result, expected, rtol=1e-4, atol=1e-4)

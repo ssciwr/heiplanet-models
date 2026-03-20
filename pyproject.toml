@@ -73,7 +73,8 @@ omit = [
     "src/heiplanet_models/__init__.py",
     "src/heiplanet_models/*/__init__.py",
     "src/heiplanet_models/Pmodel/run_model.py",
-    "test/*.py"
+    "test/*.py",
+    "scripts/*"
 ]
 
 [tool.coverage.report]
@@ -87,3 +88,9 @@ exclude_also = [
     ]
 
 fail_under = 80
+
+[tool.pytest.ini_options]
+markers = [
+  "integration: end-to-end tests with filesystem and model pipeline",
+  "regression: tests comparing against golden reference outputs",
+]

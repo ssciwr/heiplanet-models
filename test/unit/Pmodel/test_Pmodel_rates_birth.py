@@ -1,6 +1,13 @@
-import pytest
+"""Unit tests for heiplanet_models.Pmodel.Pmodel_rates_birth.
 
-from pathlib import Path
+Tests are organized by function with clear visual separation.
+"""
+
+# =============================================================================
+# IMPORTS
+# =============================================================================
+
+import pytest
 
 import numpy as np
 import xarray as xr
@@ -22,7 +29,9 @@ from heiplanet_models.Pmodel.Pmodel_params import (
 )
 
 
-# ---- Pytest Fixtures
+# =============================================================================
+# FIXTURES
+# =============================================================================
 @pytest.fixture
 def mock_lay_data():
     """Provides mock xarray data for diapause lay tests for a single year."""
@@ -137,23 +146,6 @@ def mock_hatch_data_high_latitude():
     )
     lat_data = xr.DataArray(lats, dims=("latitude"), coords={"latitude": lats})
     return temp_data, lat_data
-
-
-@pytest.fixture
-def resources_path():
-    """Provides the correct, absolute path to the test resources directory."""
-    # The test file is in '.../test/Pmodel/'.
-    # The resources are in '.../test/resources/'.
-    # Path(__file__).parent gives the directory of the current test file ('.../test/Pmodel').
-    # .parent then goes up one level to '.../test/'.
-    # Finally, we join it with the 'resources' directory name.
-    return Path(__file__).parent.parent / "resources"
-
-
-@pytest.fixture
-def temp_dummy_data(resources_path):
-    """Loads the dummy temperature data from a NetCDF file."""
-    return xr.open_dataarray(resources_path / "temperature_dummy.nc")
 
 
 @pytest.fixture
@@ -387,56 +379,29 @@ def test_mosq_dia_hatch_with_nan_input(mock_hatch_data):
     assert result.values[0, 0, 30] == 0
 
 
-def test_mosq_dia_hatch_with_dummy_data(temp_dummy_data, monkeypatch):
-    """
-    Test mosq_dia_hatch with dummy data and compare against a known Octave result.
-    """
+def test_mosq_dia_hatch_regression(model_input_dummy_datasets):
 
-    # Patch PERIOD to match the dummy data time length
-    monkeypatch.setitem(CONSTANTS_MOSQUITO_DIAPAUSE_HATCHING, "PERIOD", 1)
+    temperature_mean = model_input_dummy_datasets.temperature_mean
+    latitude = model_input_dummy_datasets.latitude
 
-    # Transpose to (longitude, latitude, time)
-    temp_data = temp_dummy_data.transpose("longitude", "latitude", "time")
-    latitude = temp_data.latitude
+    result = mosq_dia_hatch(temperature=temperature_mean, latitude=latitude)
 
-    # Run the function
-    result = mosq_dia_hatch(temp_data, latitude)
-
-    # Define the expected result from the Octave output
-    # Note: The dimensions are transposed from (lat, lon, time) in Octave
-    # to (lon, lat, time) as returned by the Python function.
-    expected_octave_result = np.array(
+    expected_values = np.array(
         [
-            # Time slice 1
-            [
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.1, 0.1, 0.1, 0.1, 0.1],
-                [0.1, 0.1, 0.1, 0.1, 0.1],
-                [0.1, 0.1, 0.1, 0.1, 0.1],
-            ],
-            # Time slice 2
-            [
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-            ],
-            # Time slice 3
-            [
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0, 0.1],
-            ],
+            # latitude 0
+            [[0, 0, 0.1, 0.1], [0, 0, 0.1, 0.1]],
+            # latitude 1
+            [[0, 0, 0.1, 0.1], [0, 0.1, 0.1, 0.1]],
+            # latitude 2
+            [[0, 0, 0.1, 0.1], [0, 0.1, 0.1, 0.1]],
         ]
     )
 
-    # Assert that the function's output matches the expected result
-    np.testing.assert_allclose(
-        result.values,
-        np.transpose(expected_octave_result, (2, 1, 0)),  # (lon, lat, time)
-        atol=1e-4,
-    )
+    # Create xarray DataArray with same structure as result
+    expected = xr.DataArray(expected_values, dims=result.dims, coords=result.coords)
+
+    # Compare result against expected values
+    xr.testing.assert_allclose(result, expected, rtol=1e-4, atol=1e-4)
 
 
 # ---- mosq_dia_lay()
@@ -494,6 +459,22 @@ def test_mosq_dia_lay_output_values(mock_lay_data):
 
     # Assert that all these non-zero values are equal to the expected ratio
     assert np.all(non_zero_values == ratio)
+
+
+def test_mosq_dia_lay_regression(model_input_dummy_datasets):
+
+    temperature_mean = model_input_dummy_datasets.temperature_mean
+    latitude = model_input_dummy_datasets.latitude
+
+    result = mosq_dia_lay(temperature=temperature_mean, latitude=latitude)
+
+    expected_values = np.zeros(shape=(3, 2, 4))
+
+    # Create xarray DataArray with same structure as result
+    expected = xr.DataArray(expected_values, dims=result.dims, coords=result.coords)
+
+    # Compare result against expected values
+    xr.testing.assert_allclose(result, expected, rtol=1e-6, atol=1e-6)
 
 
 # ---- water_hatching()
@@ -614,3 +595,45 @@ def test_water_hatching_output_retains_coords(rainfall_data, population_data_2d)
         xr.testing.assert_equal(
             result.coords[coord_name], rainfall_data.coords[coord_name]
         )
+
+
+def test_water_hatching_regression(
+    dummy_file_rainfall_dataset, dummy_file_population_dataset
+):
+    """
+    Regression test: Compare water_hatching output against known expected values.
+
+    This test ensures the function produces consistent results with real datasets.
+    If this test fails, it indicates the implementation has changed.
+    """
+    result = water_hatching(dummy_file_rainfall_dataset, dummy_file_population_dataset)
+
+    # Expected output from Octave baseline computation
+    # Octave shape: (longitude=3, latitude=2, time=4)
+    expected_values = np.array(
+        [
+            # longitude row 0
+            [
+                [2.4945e-02, 1.9995e-03, 1.9822e-03, 1.9822e-03],
+                [2.9830e-03, 1.9882e-03, 1.9881e-03, 1.9881e-03],
+            ],
+            # longitude row 1
+            [
+                [1.0928e-02, 1.9878e-03, 1.9841e-03, 1.9841e-03],
+                [2.2752e-03, 1.9900e-03, 1.9900e-03, 1.9900e-03],
+            ],
+            # longitude row 2
+            [
+                [5.1250e-03, 1.9868e-03, 1.9861e-03, 1.9861e-03],
+                [2.0659e-03, 1.9920e-03, 1.9920e-03, 1.9920e-03],
+            ],
+        ]
+    )
+
+    # Compare dimensions
+    expected_dim = (3, 2, 4)
+    assert result.shape == expected_dim
+
+    # Create xarray DataArray with same structure as result
+    expected = xr.DataArray(expected_values, dims=result.dims, coords=result.coords)
+    xr.testing.assert_allclose(result, expected, rtol=1e-4, atol=1e-4)

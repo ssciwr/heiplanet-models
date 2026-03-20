@@ -1,12 +1,11 @@
 from dataclasses import dataclass
 
-import numpy as np
 import xarray as xr
 
 
 @dataclass
 class PmodelInput:
-    initial_conditions: np.ndarray
+    initial_conditions: xr.DataArray
     latitude: xr.DataArray
     population_density: xr.DataArray
     rainfall: xr.DataArray

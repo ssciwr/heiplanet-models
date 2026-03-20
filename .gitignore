@@ -150,5 +150,15 @@ resources/
 # mkdocs 
 site
 
-# Other
-sandbox
+# Other Folder
+#--- Sanbox folders
+sandbox/
+
+# --- Large files related to the complete project
+# --input files in legacy code folder
+legacy_code/Abundace_calc_Matlab/ERA5land_global_t2m_daily_0.5_2024.nc
+legacy_code/Abundace_calc_Matlab/ERA5land_global_tp_daily_0.5_2024.nc
+legacy_code/Abundace_calc_Matlab/pop_dens_2024_global_0.5.nc
+legacy_code/Abundace_calc_Matlab/Mosquito_abundance_Global_2024.nc
+
+refactor_utilities/*

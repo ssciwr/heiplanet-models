@@ -8,10 +8,10 @@ nav:
   - Existing Models:
     - models/jmodel.md
     - models/pmodel.md
-  - Notebooks: 
+  - Notebooks:
     - Example of how to use an existing model: ./sources/model_jmodel_python.ipynb
   - API Reference: api.md
-  - Licence: license.md 
+  - Licence: license.md
 theme:
   name: material
   #logo: path/to/file.png
@@ -35,7 +35,7 @@ theme:
       note: material/pencil-circle
 
 plugins:
-  - mkdocs-jupyter: 
+  - mkdocs-jupyter:
       ignore_h1_titles: True
   - mkdocstrings:
       default_handler: python

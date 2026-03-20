@@ -1,10 +1,14 @@
 """Pytest unit tests for Pmodel_initial.py module functions.
 
-Tests use dummy NetCDF datasets located in test/resources:
+Tests use dummy NetCDF datasets located in test/test_resources:
 - dense_dummy.nc: human population density dataset
 - pr_dummy.nc: rainfall dataset
 - temperature_dummy.nc: temperature dataset
 """
+
+# =============================================================================
+# IMPORTS
+# =============================================================================
 
 import yaml
 from pathlib import Path
@@ -17,9 +21,9 @@ import pandas as pd
 from heiplanet_models.Pmodel import Pmodel_initial
 
 
-# ===================================
-# ===       Pytest Fixtures       ===
-# ===================================
+# =============================================================================
+# FIXTURES
+# =============================================================================
 @pytest.fixture
 def valid_yaml_file(tmp_path):
     """Fixture that creates a valid YAML file and returns its path."""
@@ -444,6 +448,38 @@ def mock_model_inputs():
     }
 
 
+@pytest.fixture
+def dummy_file_initial_conditions_path():
+    """Loads the initial conditions dummy file dataset from test resources."""
+    resources_dir = Path(__file__).parent.parent.parent / "test_resources"
+    dataset_path = resources_dir / "initial_conditions_dummy.nc"
+    return dataset_path
+
+
+@pytest.fixture
+def dummy_file_etl_settings_yaml():
+    """Loads the initial conditions dummy file dataset from test resources."""
+    resources_dir = Path(__file__).parent.parent.parent / "test_resources"
+    dataset_path = resources_dir / "global_settings_dummy.yaml"
+    return Pmodel_initial.read_global_settings(dataset_path)
+
+
+@pytest.fixture
+def dummy_filepath_datasets(dummy_file_etl_settings_yaml):
+    paths = Pmodel_initial.assemble_filepaths(**dummy_file_etl_settings_yaml)
+
+    return paths
+
+
+@pytest.fixture
+def dummy_input_data(dummy_filepath_datasets, dummy_file_etl_settings_yaml):
+    input_data = Pmodel_initial.load_all_data(
+        paths=dummy_filepath_datasets, etl_settings=dummy_file_etl_settings_yaml
+    )
+
+    return input_data
+
+
 # ===================================
 # ===         Unit tests          ===
 # ===================================
@@ -594,7 +630,7 @@ def test_assemble_filepaths_raises_key_error_for_malformed_components(
     assert "prefix" in str(excinfo.value)
 
 
-@pytest.mark.parametrize("invalid_year", ["2024", 2024.0, None])
+@pytest.mark.parametrize("invalid_year", ["2024", 2024.0])
 def test_assemble_filepaths_raises_type_error_for_non_integer_year(
     standard_etl_settings, invalid_year
 ):
@@ -1513,6 +1549,77 @@ def test_load_initial_conditions_ignores_extra_variables(
         )
 
 
+def test_load_initial_conditions_nofile_regression(dummy_file_etl_settings_yaml):
+
+    etl_settings = dummy_file_etl_settings_yaml
+
+    number_longitudes = 3
+    number_latitudes = 2
+    sizes = (number_longitudes, number_latitudes)
+
+    result = Pmodel_initial.load_initial_conditions(
+        filepath=None, sizes=sizes, **etl_settings
+    )
+
+    expected_values = np.zeros((3, 2, 5), dtype=np.float64)
+    expected_values[:, :, 1] = 62500.0
+    expected_values = xr.DataArray(
+        expected_values, dims=result.dims, coords=result.coords
+    )
+
+    # Compare dimensions
+    expected_dim = (3, 2, 5)
+    assert result.shape == expected_dim
+
+    # Assert values
+    xr.testing.assert_allclose(result, expected_values, rtol=1e-4, atol=1e-4)
+
+
+def test_load_initial_conditions_regression(
+    dummy_file_etl_settings_yaml, dummy_file_initial_conditions_path
+):
+    etl_settings = dummy_file_etl_settings_yaml
+
+    number_longitudes = 3
+    number_latitudes = 2
+
+    sizes = (number_longitudes, number_latitudes)
+
+    result = Pmodel_initial.load_initial_conditions(
+        filepath=dummy_file_initial_conditions_path, sizes=sizes, **etl_settings
+    )
+
+    expected_values = np.array(
+        [
+            # longitude 0
+            [
+                [5.9, 11.8, 17.7, 23.6, 35.4],
+                [6.05, 12.1, 18.15, 24.2, 36.3],
+            ],
+            # longitude 1
+            [
+                [5.95, 11.9, 17.85, 23.8, 35.7],
+                [6.1, 12.2, 18.3, 24.4, 36.6],
+            ],
+            # longitude 2
+            [
+                [6.0, 12.0, 18.0, 24.0, 36.0],
+                [6.15, 12.3, 18.45, 24.6, 36.9],
+            ],
+        ]
+    )
+    expected_values = xr.DataArray(
+        expected_values, dims=result.dims, coords=result.coords
+    )
+
+    # Compare dimensions
+    expected_dim = (3, 2, 5)
+    assert result.shape == expected_dim
+
+    # Assert values
+    xr.testing.assert_allclose(result, expected_values, rtol=1e-4, atol=1e-4)
+
+
 # ---- Unit tests for load_all_data
 def test_load_all_data_happy_path(
     monkeypatch, full_etl_settings, mock_data_paths, mock_model_inputs
@@ -1674,4 +1781,146 @@ def test_load_all_data_missing_etl_config(
     with pytest.raises(KeyError, match="data_variable"):
         Pmodel_initial.load_all_data(
             paths=mock_data_paths, etl_settings=full_etl_settings
+        )
+
+
+# ---- Unit tests for load_all_data create_model
+def test_create_model_output_regression(dummy_input_data, dummy_file_etl_settings_yaml):
+
+    dataset_base = dummy_input_data.temperature
+    initial_conditions_shape = dummy_input_data.initial_conditions.shape
+
+    time_step = dummy_file_etl_settings_yaml["ode_system"]["time_step"]
+
+    result = Pmodel_initial.create_model_output(
+        dataset_base_shape=dataset_base.shape,
+        initial_conditions_shape=initial_conditions_shape,
+        time_step=time_step,
+    )
+
+    assert result.shape == (3, 2, 5, 4)
+    assert result.dtype == np.float64
+    assert np.all(result == 0)
+
+
+def test_create_model_output_invalid_initial_conditions_shape_raises():
+    with pytest.raises(
+        ValueError,
+        match="initial_conditions must have shape \(longitude, latitude, ode_variable\)\.",
+    ):
+        Pmodel_initial.create_model_output(
+            dataset_base_shape=(3, 2, 4),
+            initial_conditions_shape=(3, 2),
+            time_step=1,
+        )
+
+
+def test_create_model_output_empty_dataset_shape_raises():
+    with pytest.raises(
+        ValueError,
+        match="temperature_shape must contain at least one dimension\.",
+    ):
+        Pmodel_initial.create_model_output(
+            dataset_base_shape=(),
+            initial_conditions_shape=(3, 2, 5),
+            time_step=1,
+        )
+
+
+def test_create_model_output_non_positive_timestep_raises():
+    with pytest.raises(ValueError, match="time_step must be greater than 0\."):
+        Pmodel_initial.create_model_output(
+            dataset_base_shape=(3, 2, 4),
+            initial_conditions_shape=(3, 2, 5),
+            time_step=0,
+        )
+
+
+def test_preprocess_dataset_transpose_exception(monkeypatch, sample_dataset):
+    def _raise_transpose_error(self, *args, **kwargs):
+        raise RuntimeError("transpose failed")
+
+    monkeypatch.setattr(xr.Dataset, "transpose", _raise_transpose_error)
+
+    with pytest.raises(RuntimeError, match="transpose failed"):
+        Pmodel_initial.preprocess_dataset(
+            dataset=sample_dataset,
+            dimension_order=("x", "y"),
+        )
+
+
+def test_load_all_data_rainfall_load_failure(
+    monkeypatch,
+    full_etl_settings,
+    mock_data_paths,
+    mock_model_inputs,
+):
+    monkeypatch.setattr(
+        Pmodel_initial,
+        "load_temperature_dataset",
+        lambda *args, **kwargs: mock_model_inputs["temperature"],
+    )
+
+    def _raise_rainfall_error(*args, **kwargs):
+        raise OSError("Rainfall load failed")
+
+    monkeypatch.setattr(Pmodel_initial, "load_rainfall_dataset", _raise_rainfall_error)
+
+    with pytest.raises(OSError, match="Rainfall load failed"):
+        Pmodel_initial.load_all_data(
+            paths=mock_data_paths, etl_settings=full_etl_settings
+        )
+
+
+def test_load_all_data_population_load_failure(
+    monkeypatch,
+    full_etl_settings,
+    mock_data_paths,
+    mock_model_inputs,
+):
+    monkeypatch.setattr(
+        Pmodel_initial,
+        "load_temperature_dataset",
+        lambda *args, **kwargs: mock_model_inputs["temperature"],
+    )
+    monkeypatch.setattr(
+        Pmodel_initial,
+        "load_rainfall_dataset",
+        lambda *args, **kwargs: mock_model_inputs["rainfall"],
+    )
+
+    def _raise_population_error(*args, **kwargs):
+        raise OSError("Population load failed")
+
+    monkeypatch.setattr(
+        Pmodel_initial,
+        "load_population_dataset",
+        _raise_population_error,
+    )
+
+    with pytest.raises(OSError, match="Population load failed"):
+        Pmodel_initial.load_all_data(
+            paths=mock_data_paths, etl_settings=full_etl_settings
+        )
+
+
+def test_load_initial_conditions_variable_extract_failure(tmp_path, mock_etl_settings):
+    filepath = tmp_path / "initial_conditions_bad.nc"
+
+    ds = xr.Dataset(
+        {
+            # Missing time dimension on purpose; isel(time=-1) should fail.
+            "S": (("longitude", "latitude"), np.ones((2, 2))),
+            "E": (("longitude", "latitude"), np.ones((2, 2))),
+            "I": (("longitude", "latitude"), np.ones((2, 2))),
+            "R": (("longitude", "latitude"), np.ones((2, 2))),
+        }
+    )
+    ds.to_netcdf(filepath)
+
+    with pytest.raises(Exception):
+        Pmodel_initial.load_initial_conditions(
+            filepath=filepath,
+            sizes=(2, 2),
+            **mock_etl_settings,
         )

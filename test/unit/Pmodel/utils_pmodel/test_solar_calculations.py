@@ -1,4 +1,5 @@
 import math
+from typing import Union, cast
 
 import pytest
 import numpy as np
@@ -55,17 +56,17 @@ def test_revolution_angle_negative_day_raises():
 
 def test_revolution_angle_float_input_raises():
     with pytest.raises(TypeError):
-        revolution_angle(1.5)
+        revolution_angle(cast(Union[int, np.ndarray], 1.5))
 
 
 def test_revolution_angle_string_input_raises():
     with pytest.raises(TypeError):
-        revolution_angle("100")
+        revolution_angle(cast(Union[int, np.ndarray], "100"))
 
 
 def test_revolution_angle_none_input_raises():
     with pytest.raises(TypeError):
-        revolution_angle(None)
+        revolution_angle(cast(Union[int, np.ndarray], None))
 
 
 def test_revolution_angle_vector_input():
@@ -127,12 +128,12 @@ def test_declination_angle_output_range():
 
 def test_declination_angle_string_input_raises():
     with pytest.raises(TypeError):
-        declination_angle("invalid")
+        declination_angle(cast(float, "invalid"))
 
 
 def test_declination_angle_none_input_raises():
     with pytest.raises(TypeError):
-        declination_angle(None)
+        declination_angle(cast(float, None))
 
 
 # ---- daylight_forsythe()
@@ -195,12 +196,16 @@ def test_daylight_forsythe_invalid_latitude_low_raises():
 def test_daylight_forsythe_string_input_raises():
     with pytest.raises(TypeError):
         daylight_forsythe(
-            latitude="invalid", declination_angle=0.0, daylight_coefficient=0.0
+            latitude=cast(float, "invalid"),
+            declination_angle=0.0,
+            daylight_coefficient=0.0,
         )
 
 
 def test_daylight_forsythe_none_input_raises():
     with pytest.raises(TypeError):
         daylight_forsythe(
-            latitude=None, declination_angle=0.0, daylight_coefficient=0.0
+            latitude=cast(float, None),
+            declination_angle=0.0,
+            daylight_coefficient=0.0,
         )
