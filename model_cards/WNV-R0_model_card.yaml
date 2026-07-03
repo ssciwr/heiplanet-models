@@ -91,8 +91,7 @@ maintenance:
   development_approach: Continued methodological updates and model extensions
 
 datasets:
-    - Laboratory experimental data on mosquito-pathogen traits compiled through 
-    systematic literature review
+    - Laboratory experimental data on mosquito-pathogen traits compiled through systematic literature review
     - Copernicus ERA5-Land Climate Data
     - ECDC human West Nile Neuroinvasive disease cases data for validation
 
