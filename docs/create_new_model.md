@@ -39,8 +39,7 @@ In order to make this work well, there need to be a couple of restrictions on ho
 - Assuming a function `C` has predecessors (input functions) `A`, `B` with output `a`, `b`, other parameters `x`, `y`, and keyword arguments with defaults `k = r`, `l=s`, the function signature should look like this: 
 
 ```python 
-def C(a, b, x, y, k=r, l=s): 
-    ... 
+def C(a, b, x, y, k=r, l=s): ...
 ```
 
 - As a restriction inherited from the way we use `dask`, each computational graph **must have a single, unique sink node** that all data flows into eventually. 
@@ -74,7 +73,6 @@ At this stage, the design phase is done: We know what states the model should ha
 
 The functional code for each of these steps can look like this: 
 ```python
-
 def add(x, y):
     return x + y
 
@@ -89,7 +87,6 @@ def subtract(x, y):
 
 def affine(x, a=1, b=0):
     return a * x + b
-
 ```
 
 Additionally, we need a data source, e.g., for loading the input data from csv:
@@ -172,10 +169,10 @@ Before building the computation graph and running the model, we need to complete
 
 ```python
 config = {
-    'graph': graph_config, 
-    'execution': {
-        'scheduler': 'synchronous' # synchronous schedule, no parallelization
-    }, 
+    "graph": graph_config,
+    "execution": {
+        "scheduler": "synchronous"  # synchronous schedule, no parallelization
+    },
 }
 ```
 
@@ -183,6 +180,7 @@ Finally, assuming this is available as an object `config` (e.g., loaded from dis
 
 ```python 
 from heiplanet_models import computation_graph
+
 computation = computation_graph(config)
 computation.visualize()
 ```
