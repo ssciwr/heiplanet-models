@@ -27,11 +27,11 @@ def load_data(file_path):
     except FileNotFoundError:
         raise ValueError(f"File not found: {file_path}")
     except Exception as e:
-        raise ValueError(f"An error occurred while loading data: {e}")
+        raise ValueError(f"An error occurred while loading data: {e}") from e
 
 
 def save_data(data, file_path):
     try:
         data.to_csv(file_path, index=True)
     except Exception as e:
-        raise ValueError(f"An error occurred while saving data: {e}")
+        raise ValueError(f"An error occurred while saving data: {e}") from e

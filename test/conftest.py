@@ -1,7 +1,8 @@
-import pytest
-import numpy as np
-import xarray as xr
 from pathlib import Path
+
+import numpy as np
+import pytest
+import xarray as xr
 
 
 def make_testdata_impl(path: Path, resolution: int = 10) -> xr.Dataset:

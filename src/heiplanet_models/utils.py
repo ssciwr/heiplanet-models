@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import importlib
+
 import numpy as np
 import xarray as xr
-import importlib
 
 
 # helpers for loading code

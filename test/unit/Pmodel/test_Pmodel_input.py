@@ -7,8 +7,8 @@ Tests are organized by function with clear visual separation.
 # IMPORTS
 # =============================================================================
 
-import pytest
 import numpy as np
+import pytest
 import xarray as xr
 
 from heiplanet_models.Pmodel.Pmodel_input import PmodelInput

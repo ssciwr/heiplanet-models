@@ -7,10 +7,10 @@ import pytest
 import xarray as xr
 
 from heiplanet_models.Pmodel.Pmodel_initial import (
-    load_temperature_dataset,
-    load_rainfall_dataset,
-    load_population_dataset,
     load_all_data,
+    load_population_dataset,
+    load_rainfall_dataset,
+    load_temperature_dataset,
 )
 
 

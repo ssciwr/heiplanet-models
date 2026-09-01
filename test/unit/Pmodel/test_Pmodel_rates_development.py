@@ -8,21 +8,22 @@ Tests are organized by function with clear visual separation.
 # =============================================================================
 
 # Third-party
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 import xarray as xr
+
+from heiplanet_models.Pmodel.Pmodel_params import (
+    CONSTANTS_CARRYING_CAPACITY,
+    CONSTANTS_MOSQUITO_E,
+)
 
 # Local application
 from heiplanet_models.Pmodel.Pmodel_rates_development import (
-    mosq_dev_j,
-    mosq_dev_i,
-    mosq_dev_e,
     carrying_capacity,
-)
-from heiplanet_models.Pmodel.Pmodel_params import (
-    CONSTANTS_MOSQUITO_E,
-    CONSTANTS_CARRYING_CAPACITY,
+    mosq_dev_e,
+    mosq_dev_i,
+    mosq_dev_j,
 )
 
 # =============================================================================

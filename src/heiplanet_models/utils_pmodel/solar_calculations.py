@@ -1,16 +1,14 @@
 import logging
-from typing import Union
 
 import numpy as np
 
 from heiplanet_models.Pmodel.Pmodel_params import (
-    CONSTANTS_REVOLUTION_ANGLE,
     CONSTANT_DECLINATION_ANGLE,
-    MIN_LAT_DEGREES,
-    MAX_LAT_DEGREES,
+    CONSTANTS_REVOLUTION_ANGLE,
     HOURS_PER_DAY,
+    MAX_LAT_DEGREES,
+    MIN_LAT_DEGREES,
 )
-
 
 # ---- Logger
 logger = logging.getLogger(__name__)
@@ -18,7 +16,7 @@ logger.addHandler(logging.NullHandler())
 
 
 # ---- General functions
-def revolution_angle(days: Union[int, np.ndarray]) -> Union[float, np.ndarray]:
+def revolution_angle(days: int | np.ndarray) -> float | np.ndarray:
     """Calculate Earth's revolution angle in radians for given days of the year.
 
     This function can process both a single integer day or a numpy array of days.

@@ -10,13 +10,13 @@ Tests use dummy NetCDF datasets located in test/test_resources:
 # IMPORTS
 # =============================================================================
 
-import yaml
 from pathlib import Path
 
-import pytest
 import numpy as np
-import xarray as xr
 import pandas as pd
+import pytest
+import xarray as xr
+import yaml
 
 from heiplanet_models.Pmodel import Pmodel_initial
 
@@ -605,7 +605,7 @@ def test_assemble_filepaths_empty_filename_components(standard_etl_settings):
 def test_assemble_filepaths_raises_key_error_for_missing_ingestion():
     """Test that a KeyError is raised if 'ingestion' key is missing."""
     with pytest.raises(KeyError) as excinfo:
-        Pmodel_initial.assemble_filepaths(2024, **{})
+        Pmodel_initial.assemble_filepaths(2024)
     assert "ingestion" in str(excinfo.value)
 
 
@@ -1075,7 +1075,7 @@ def test_load_rainfall_dataset_happy_path(
     assert "lat" not in result_ds.dims
     assert "lon" not in result_ds.dims
     # Check that the data variable from the original file is still there
-    assert list(original_ds.data_vars)[0] in result_ds.data_vars
+    assert next(iter(original_ds.data_vars)) in result_ds.data_vars
 
 
 def test_load_rainfall_dataset_no_preprocessing(
@@ -1506,7 +1506,7 @@ def test_load_initial_conditions_corrupt_file(corrupted_netcdf_file, mock_etl_se
     """
     Tests that an error is raised when the input file is corrupt.
     """
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: B017
         Pmodel_initial.load_initial_conditions(
             filepath=corrupted_netcdf_file, sizes=(2, 2), **mock_etl_settings
         )
@@ -1629,20 +1629,20 @@ def test_load_all_data_happy_path(
     underlying functions.
     """
     # --- Mock all external function calls ---
-    mock_load_temp = lambda *args, **kwargs: mock_model_inputs["temperature"]  # noqa
-    mock_load_rain = lambda *args, **kwargs: mock_model_inputs["rainfall"]  # noqa
-    mock_load_pop = lambda *args, **kwargs: mock_model_inputs["population"]  # noqa
+    mock_load_temp = lambda *args, **kwargs: mock_model_inputs["temperature"]
+    mock_load_rain = lambda *args, **kwargs: mock_model_inputs["rainfall"]
+    mock_load_pop = lambda *args, **kwargs: mock_model_inputs["population"]
 
-    mock_postprocess = lambda dataset, **kwargs: mock_model_inputs[  # noqa
+    mock_postprocess = lambda dataset, **kwargs: mock_model_inputs[
         "processed_population"
     ]
 
-    mock_create_temp = lambda *args, **kwargs: (  # noqa
+    mock_create_temp = lambda *args, **kwargs: (
         mock_model_inputs["da_temp_daily"],
         mock_model_inputs["da_temp_mean"],
     )
 
-    mock_load_initial = lambda *args, **kwargs: mock_model_inputs["initial_conditions"]  # noqa
+    mock_load_initial = lambda *args, **kwargs: mock_model_inputs["initial_conditions"]
 
     monkeypatch.setattr(Pmodel_initial, "load_temperature_dataset", mock_load_temp)
     monkeypatch.setattr(Pmodel_initial, "load_rainfall_dataset", mock_load_rain)
@@ -1806,7 +1806,7 @@ def test_create_model_output_regression(dummy_input_data, dummy_file_etl_setting
 def test_create_model_output_invalid_initial_conditions_shape_raises():
     with pytest.raises(
         ValueError,
-        match="initial_conditions must have shape \(longitude, latitude, ode_variable\)\.",
+        match=r"initial_conditions must have shape \(longitude, latitude, ode_variable\)\.",
     ):
         Pmodel_initial.create_model_output(
             dataset_base_shape=(3, 2, 4),
@@ -1818,7 +1818,7 @@ def test_create_model_output_invalid_initial_conditions_shape_raises():
 def test_create_model_output_empty_dataset_shape_raises():
     with pytest.raises(
         ValueError,
-        match="temperature_shape must contain at least one dimension\.",
+        match=r"temperature_shape must contain at least one dimension\.",
     ):
         Pmodel_initial.create_model_output(
             dataset_base_shape=(),
@@ -1828,7 +1828,7 @@ def test_create_model_output_empty_dataset_shape_raises():
 
 
 def test_create_model_output_non_positive_timestep_raises():
-    with pytest.raises(ValueError, match="time_step must be greater than 0\."):
+    with pytest.raises(ValueError, match=r"time_step must be greater than 0\."):
         Pmodel_initial.create_model_output(
             dataset_base_shape=(3, 2, 4),
             initial_conditions_shape=(3, 2, 5),
@@ -1918,7 +1918,7 @@ def test_load_initial_conditions_variable_extract_failure(tmp_path, mock_etl_set
     )
     ds.to_netcdf(filepath)
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: B017
         Pmodel_initial.load_initial_conditions(
             filepath=filepath,
             sizes=(2, 2),

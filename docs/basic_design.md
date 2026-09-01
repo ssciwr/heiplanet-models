@@ -132,8 +132,7 @@ For example, in the above configuration, the function `compute2` would have the
 following basic signature. 
 
 ```python 
-def compute_something_else(output_of_setup, output_of_compute_something): 
-    ... 
+def compute_something_else(output_of_setup, output_of_compute_something): ...
 ```
 
 The first argument here is the output of the `setup` function, the second is the output of the `compute_something` function.
@@ -141,8 +140,9 @@ The first argument here is the output of the `setup` function, the second is the
 This doesn't mean that a function cannot have more arguments or keyword arguments. `heiplanet-models` does support arbitrary further args and kwargs, which, however **must be fixed and given in the config**. This means that for the `compute_something_else` function, it could have, for example, the following signature:
 
 ```python 
-def compute_something_else(output_of_setup, output_of_compute_something, arg1, arg2, arg3, kwarg1=k1, kwarg2=k2): 
-    ... 
+def compute_something_else(
+    output_of_setup, output_of_compute_something, arg1, arg2, arg3, kwarg1=k1, kwarg2=k2
+): ...
 ```
 In the configuration file, these additional parameters to the function are given under the `args` and `kwargs` entries in each function node: 
 

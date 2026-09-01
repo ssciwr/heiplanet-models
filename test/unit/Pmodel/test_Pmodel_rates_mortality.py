@@ -12,9 +12,9 @@ import pytest
 import xarray as xr
 
 from heiplanet_models.Pmodel.Pmodel_rates_mortality import (
+    mosq_mort_a,
     mosq_mort_e,
     mosq_mort_j,
-    mosq_mort_a,
     mosq_surv_ed,
 )
 

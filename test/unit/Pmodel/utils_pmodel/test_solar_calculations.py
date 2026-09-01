@@ -1,16 +1,16 @@
 import math
-from typing import Union, cast
+from typing import cast
 
-import pytest
 import numpy as np
+import pytest
 
-from heiplanet_models.utils_pmodel.solar_calculations import (
-    revolution_angle,
-    declination_angle,
-    daylight_forsythe,
-)
 from heiplanet_models.Pmodel.Pmodel_params import (
     CONSTANT_DECLINATION_ANGLE,
+)
+from heiplanet_models.utils_pmodel.solar_calculations import (
+    daylight_forsythe,
+    declination_angle,
+    revolution_angle,
 )
 
 
@@ -56,17 +56,17 @@ def test_revolution_angle_negative_day_raises():
 
 def test_revolution_angle_float_input_raises():
     with pytest.raises(TypeError):
-        revolution_angle(cast(Union[int, np.ndarray], 1.5))
+        revolution_angle(cast(int | np.ndarray, 1.5))
 
 
 def test_revolution_angle_string_input_raises():
     with pytest.raises(TypeError):
-        revolution_angle(cast(Union[int, np.ndarray], "100"))
+        revolution_angle(cast(int | np.ndarray, "100"))
 
 
 def test_revolution_angle_none_input_raises():
     with pytest.raises(TypeError):
-        revolution_angle(cast(Union[int, np.ndarray], None))
+        revolution_angle(cast(int | np.ndarray, None))
 
 
 def test_revolution_angle_vector_input():
