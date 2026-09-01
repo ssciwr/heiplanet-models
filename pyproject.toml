@@ -38,6 +38,7 @@ dev = [
   "pytest",
   "pytest-cov",
   "graphviz",   # we need this for the viz tests
+  "huggingface-hub",   # for the hf_integration tests, which pull/push fixture data from/to the Hub
 ]
 docs = [
   "mkdocs-material",
@@ -100,4 +101,5 @@ ignore = [
 markers = [
   "integration: end-to-end tests with filesystem and model pipeline",
   "regression: tests comparing against golden reference outputs",
+  "hf_integration: end-to-end tests against real Hugging Face Hub dataset repos; needs network and HF_TOKEN, run via the integration.yml workflow",
 ]
