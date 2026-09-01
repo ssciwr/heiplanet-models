@@ -23,25 +23,79 @@ from heiplanet_models.Pmodel.Pmodel_params import CONSTANTS_INITIAL_CONDITIONS
 # ---- Logger
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+COORDINATE_ALIGNMENT_ATOL = 1e-12
+EXPECTED_MODEL_VARIABLES = ["eggs", "ed", "juv", "imm", "adults"]
 
 
 # ---- Utility functions
+def _validate_pmodel_settings(settings: dict[str, Any]) -> None:
+    """Validate the Pmodel numerical and execution settings contract."""
+
+    ode_system = settings.get("ode_system")
+    if not isinstance(ode_system, dict):
+        raise ValueError(  # noqa: TRY004
+            "Settings must contain an 'ode_system' mapping."
+        )
+
+    time_step = ode_system.get("time_step")
+    if isinstance(time_step, bool) or not isinstance(time_step, int):
+        raise ValueError(  # noqa: TRY004
+            "ode_system.time_step must be a positive integer."
+        )
+    if time_step <= 0:
+        raise ValueError("ode_system.time_step must be a positive integer.")
+
+    model_variables = ode_system.get("model_variables")
+    if model_variables != EXPECTED_MODEL_VARIABLES:
+        raise ValueError(
+            "ode_system.model_variables must be "
+            f"{EXPECTED_MODEL_VARIABLES!r}; got {model_variables!r}."
+        )
+
+    execution = settings.get("execution")
+    if not isinstance(execution, dict):
+        raise ValueError(  # noqa: TRY004
+            "Settings must contain an 'execution' mapping."
+        )
+
+    initial_year = execution.get("initial_year")
+    final_year = execution.get("final_year")
+    if (
+        isinstance(initial_year, bool)
+        or isinstance(final_year, bool)
+        or not isinstance(initial_year, int)
+        or not isinstance(final_year, int)
+    ):
+        raise ValueError(  # noqa: TRY004
+            "execution.initial_year and execution.final_year must be integers."
+        )
+    if final_year < initial_year:
+        raise ValueError(
+            "execution.final_year must be greater than or equal to "
+            "execution.initial_year."
+        )
+
+
 def read_global_settings(filepath_configuration_file: str) -> dict[str, Any]:
-    """Load global ETL settings from a YAML configuration file.
+    """Load and validate global Pmodel settings from a YAML configuration file.
 
     Args:
         filepath_configuration_file (str): Absolute or relative path to the YAML configuration file containing ETL settings.
 
     Returns:
-        dict[str, Any]: Parsed settings as a dictionary with string keys and values of any type, as loaded from the YAML file.
+        dict[str, Any]: Parsed settings after numerical and execution validation.
 
     Raises:
         FileNotFoundError: If the configuration file does not exist.
         yaml.YAMLError: If the YAML file cannot be parsed.
+        ValueError: If required numerical or execution settings are invalid.
     """
 
-    with open(filepath_configuration_file, "r") as f:
+    with open(filepath_configuration_file, "r", encoding="utf-8") as f:
         global_settings = yaml.safe_load(f)
+    if not isinstance(global_settings, dict):
+        raise ValueError("Settings YAML root must be a mapping.")  # noqa: TRY004
+    _validate_pmodel_settings(global_settings)
     return global_settings
 
 
@@ -241,14 +295,54 @@ def align_xarray_datasets(
         )
         return xr.Dataset(coords=fixed_dataset.coords)
 
+    for coord_name in ("longitude", "latitude"):
+        if coord_name not in misaligned_dataset.coords:
+            raise ValueError(
+                f"misaligned_dataset is missing coordinate {coord_name!r}."
+            )
+        if coord_name not in fixed_dataset.coords:
+            raise AttributeError(f"fixed_dataset is missing coordinate {coord_name!r}.")
+
+    source_longitude = np.asarray(misaligned_dataset.longitude.values)
+    source_latitude = np.asarray(misaligned_dataset.latitude.values)
+    target_longitude = np.asarray(fixed_dataset.longitude.values)
+    target_latitude = np.asarray(fixed_dataset.latitude.values)
+
+    longitude_matches = (
+        source_longitude.shape == target_longitude.shape
+        and np.allclose(
+            source_longitude,
+            target_longitude,
+            rtol=0.0,
+            atol=COORDINATE_ALIGNMENT_ATOL,
+            equal_nan=True,
+        )
+    )
+    latitude_matches = source_latitude.shape == target_latitude.shape and np.allclose(
+        source_latitude,
+        target_latitude,
+        rtol=0.0,
+        atol=COORDINATE_ALIGNMENT_ATOL,
+        equal_nan=True,
+    )
+
+    if longitude_matches and latitude_matches:
+        logger.info(
+            "Skipping spatial interpolation because longitude/latitude grids already match."
+        )
+        return misaligned_dataset
+
     try:
+        logger.info(
+            "Interpolating dataset to reference longitude/latitude grid because coordinates differ."
+        )
         return misaligned_dataset.interp(
             longitude=fixed_dataset.longitude,
             latitude=fixed_dataset.latitude,
             method="linear",
         )
-    except Exception as e:
-        logger.error("Failed to align coordinates using interpolation: %s", e)
+    except Exception:
+        logger.exception("Failed to align coordinates using interpolation.")
         raise
 
 
@@ -384,8 +478,8 @@ def create_temperature_daily(
             },
             name="temperature_daily",
         )
-    except Exception as e:
-        logger.error(f"Failed to expand temperature array: {e}")
+    except Exception:
+        logger.exception("Failed to expand temperature array.")
         raise
 
     return temperature_daily, temperature_mean
@@ -419,9 +513,9 @@ def load_initial_conditions(
     else:
         try:
             ds = load_dataset(filepath)
-        except Exception as e:
-            logger.error(
-                f"Failed to load previous initial conditions from '{filepath}': {e}"
+        except Exception:
+            logger.exception(
+                "Failed to load previous initial conditions from '%s'.", filepath
             )
             raise
         data = np.zeros((n_longitude, n_latitude, n_vars), dtype=np.float64)
@@ -435,9 +529,9 @@ def load_initial_conditions(
                 )
             try:
                 data[:, :, i] = ds[var].isel(time=-1).values
-            except Exception as e:
-                logger.error(
-                    f"Failed to extract variable '{var}' from previous conditions: {e}"
+            except Exception:
+                logger.exception(
+                    "Failed to extract variable '%s' from previous conditions.", var
                 )
                 raise
         logger.info("Loaded initial conditions from previous file.")
@@ -451,25 +545,11 @@ def load_initial_conditions(
     return v0_xr
 
 
-def load_all_data(paths: dict[str, Any], etl_settings: dict[str, Any]) -> PmodelInput:
-    """Load, preprocess, and assemble all required datasets and arrays for the model.
+def _load_and_align_datasets(
+    paths: dict[str, Any], etl_settings: dict[str, Any]
+) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+    """Load model source datasets and align population data to temperature."""
 
-    Args:
-        paths (dict[str, Any]): Dictionary mapping dataset names to their file paths.
-        etl_settings (dict[str, Any]): Dictionary containing ETL configuration and transformation settings.
-
-    Returns:
-        PmodelInput: An object containing all loaded and processed model input arrays.
-
-    Raises:
-        FileNotFoundError: If any required dataset file does not exist.
-        KeyError: If required keys are missing in etl_settings or datasets.
-        Exception: For any other errors during data loading or processing.
-    """
-    # ===========================
-    # ===    Load Datasets    ===
-    # ===========================
-    # --- Load temperature dataset
     try:
         temperature = load_temperature_dataset(
             path_dataset=paths["temperature_dataset"], **etl_settings
@@ -505,34 +585,36 @@ def load_all_data(paths: dict[str, Any], etl_settings: dict[str, Any]) -> Pmodel
         dataset=human_population, reference_dataset=temperature, **params
     )
 
-    # ========================================
-    # ===    Extract/Create Data Arrays    ===
-    # ========================================
-    # --- Temperature arrays
-    da_temperature, da_temperature_mean = create_temperature_daily(
-        temperature_dataset=temperature, **etl_settings
-    )
+    return temperature, rainfall, human_population
 
-    # --- Rainfall Array
+
+def _extract_common_model_inputs(
+    temperature: xr.Dataset,
+    rainfall: xr.Dataset,
+    human_population: xr.Dataset,
+    etl_settings: dict[str, Any],
+) -> tuple[xr.DataArray, xr.DataArray, xr.DataArray, xr.DataArray, xr.DataArray]:
+    """Extract shared model arrays and initialize the population state."""
+
+    temperature_variable_name = etl_settings["transformation"]["temperature_dataset"][
+        "data_variable"
+    ]
+    temperature_mean = temperature[temperature_variable_name]
+
     rainfall_variable_name = etl_settings["transformation"]["rainfall_dataset"][
         "data_variable"
     ]
-    da_rainfall = rainfall[rainfall_variable_name]
-    logger.debug(f"Rainfall shape: {da_rainfall.shape}")
+    rainfall_data = rainfall[rainfall_variable_name]
+    logger.debug(f"Rainfall shape: {rainfall_data.shape}")
 
-    # --- Human population Array
     human_population_variable_name = etl_settings["transformation"][
         "human_population_dataset"
     ]["data_variable"]
-    da_population = human_population[human_population_variable_name]
-    logger.debug(f"Population shape: {da_population.shape}")
+    population_data = human_population[human_population_variable_name]
+    logger.debug(f"Population shape: {population_data.shape}")
 
-    # --- Latitude Array
-    da_latitude = da_temperature_mean["latitude"]
-
-    # --- Create/Load initial conditions
-    # Extract longitude and latitude dimensions from temperature mean shape
-    n_longitude, n_latitude = da_temperature_mean.shape[:2]
+    latitude = temperature_mean["latitude"]
+    n_longitude, n_latitude = temperature_mean.shape[:2]
     filepath_initial_conditions = etl_settings["ingestion"]["initial_conditions"][
         "file_path_initial_conditions"
     ]
@@ -542,16 +624,78 @@ def load_all_data(paths: dict[str, Any], etl_settings: dict[str, Any]) -> Pmodel
         **etl_settings,
     )
 
-    # ================================================
-    # ===    Return Container for all variables    ===
-    # ================================================
+    return (
+        temperature_mean,
+        rainfall_data,
+        population_data,
+        latitude,
+        initial_conditions,
+    )
+
+
+def load_all_data(paths: dict[str, Any], etl_settings: dict[str, Any]) -> PmodelInput:
+    """Load model inputs for legacy backends with repeated sub-daily temperature."""
+
+    temperature, rainfall, human_population = _load_and_align_datasets(
+        paths, etl_settings
+    )
+    temperature_daily, temperature_mean = create_temperature_daily(
+        temperature_dataset=temperature, **etl_settings
+    )
+    (
+        _temperature_mean,
+        rainfall_data,
+        population_data,
+        latitude,
+        initial_conditions,
+    ) = _extract_common_model_inputs(
+        temperature, rainfall, human_population, etl_settings
+    )
+
     return PmodelInput(
         initial_conditions=initial_conditions,
-        latitude=da_latitude,
-        population_density=da_population,
-        rainfall=da_rainfall,
-        temperature=da_temperature,
-        temperature_mean=da_temperature_mean,
+        latitude=latitude,
+        population_density=population_data,
+        rainfall=rainfall_data,
+        temperature=temperature_daily,
+        temperature_mean=temperature_mean,
+    )
+
+
+def load_all_data_daily(
+    paths: dict[str, Any], etl_settings: dict[str, Any]
+) -> PmodelInput:
+    """Load model inputs for daily SciPy solving without repeated temperature.
+
+    This is the low-memory input path for ``scipy_chunked`` production runs.
+    It keeps the legacy ``load_all_data`` behavior unchanged and returns an
+    empty ``temperature`` placeholder because the daily SciPy solver uses
+    ``temperature_mean`` directly.
+    """
+
+    temperature, rainfall, human_population = _load_and_align_datasets(
+        paths, etl_settings
+    )
+    (
+        temperature_mean,
+        rainfall_data,
+        population_data,
+        latitude,
+        initial_conditions,
+    ) = _extract_common_model_inputs(
+        temperature, rainfall, human_population, etl_settings
+    )
+    temperature_daily = temperature_mean.isel(time=slice(0, 0)).rename(
+        "temperature_daily"
+    )
+
+    return PmodelInput(
+        initial_conditions=initial_conditions,
+        latitude=latitude,
+        population_density=population_data,
+        rainfall=rainfall_data,
+        temperature=temperature_daily,
+        temperature_mean=temperature_mean,
     )
 
 

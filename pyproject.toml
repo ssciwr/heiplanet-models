@@ -29,6 +29,11 @@ dependencies = [
   "cftime>=1.6.4.post1",
   "geopandas>=1.0.1",
   "scipy>=1.13.1",
+  "numba>=0.65.1",
+  "jax[cpu]>=0.10.0",
+  "diffrax>=0.7.2",
+  "rich>=15.0.0",
+  "cartopy>=0.25.0",
 ]
 
 [project.optional-dependencies]
@@ -96,7 +101,12 @@ ignore = [
     "N999",
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Exploratory notebooks intentionally return display fallbacks for arbitrary data errors.
+"notebooks/*.ipynb" = ["BLE001"]
+
 [tool.pytest.ini_options]
+pythonpath = ["."]
 markers = [
   "integration: end-to-end tests with filesystem and model pipeline",
   "regression: tests comparing against golden reference outputs",

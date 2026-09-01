@@ -28,20 +28,11 @@ from heiplanet_models.Pmodel import Pmodel_initial
 def valid_yaml_file(tmp_path):
     """Fixture that creates a valid YAML file and returns its path."""
     data = {
-        "ingestion": {
-            "path_root_datasets": "/data",
-            "xarray_load_settings": {"engine": "netcdf4"},
-            "filename_components": {
-                "temperature_dataset": {
-                    "prefix": "temp_",
-                    "suffix": "",
-                    "extension": ".nc",
-                }
-            },
-            "initial_conditions": {"file_path_initial_conditions": "/data/init.nc"},
+        "ode_system": {
+            "time_step": 10,
+            "model_variables": ["eggs", "ed", "juv", "imm", "adults"],
         },
-        "transformation": {},
-        "ode_system": {},
+        "execution": {"initial_year": 2024, "final_year": 2025},
     }
     file_path = tmp_path / "valid_settings.yaml"
     with open(file_path, "w") as f:
@@ -510,29 +501,89 @@ def test_read_global_settings_invalid_yaml(invalid_yaml_file):
 
 
 def test_read_global_settings_empty_yaml(empty_yaml_file):
-    """Test that an empty YAML file returns None."""
-    result = Pmodel_initial.read_global_settings(str(empty_yaml_file))
-    assert result is None
+    """Test that an empty YAML file is rejected."""
+    with pytest.raises(ValueError, match="root must be a mapping"):
+        Pmodel_initial.read_global_settings(str(empty_yaml_file))
 
 
 def test_read_global_settings_comments_only_yaml(comments_only_yaml_file):
-    """Test that a YAML file with only comments returns None."""
-    result = Pmodel_initial.read_global_settings(str(comments_only_yaml_file))
-    assert result is None
+    """Test that a comments-only YAML file is rejected."""
+    with pytest.raises(ValueError, match="root must be a mapping"):
+        Pmodel_initial.read_global_settings(str(comments_only_yaml_file))
 
 
 def test_read_global_settings_unicode_yaml(unicode_yaml_file):
-    """Test that a YAML file with Unicode content loads correctly."""
-    file_path, expected_data = unicode_yaml_file
-    result = Pmodel_initial.read_global_settings(str(file_path))
-    assert result == expected_data
+    """Test that a YAML file without Pmodel settings is rejected."""
+    file_path, _ = unicode_yaml_file
+    with pytest.raises(ValueError, match="ode_system"):
+        Pmodel_initial.read_global_settings(str(file_path))
 
 
 def test_read_global_settings_various_types_yaml(various_types_yaml_file):
-    """Test that a YAML file with various data types loads correctly."""
-    file_path, expected_data = various_types_yaml_file
-    result = Pmodel_initial.read_global_settings(str(file_path))
-    assert result == expected_data
+    """Test that a YAML file without Pmodel settings is rejected."""
+    file_path, _ = various_types_yaml_file
+    with pytest.raises(ValueError, match="ode_system"):
+        Pmodel_initial.read_global_settings(str(file_path))
+
+
+@pytest.mark.parametrize("time_step", [0, -1, 1.5, 10.0, True])
+def test_read_global_settings_rejects_invalid_time_step(valid_yaml_file, time_step):
+    """Test that time_step must be a positive integer."""
+    file_path, settings = valid_yaml_file
+    settings["ode_system"]["time_step"] = time_step
+    with open(file_path, "w", encoding="utf-8") as settings_file:
+        yaml.safe_dump(settings, settings_file)
+
+    with pytest.raises(ValueError, match="time_step"):
+        Pmodel_initial.read_global_settings(str(file_path))
+
+
+def test_read_global_settings_rejects_invalid_execution_range(valid_yaml_file):
+    """Test that final_year cannot precede initial_year."""
+    file_path, settings = valid_yaml_file
+    settings["execution"] = {"initial_year": 2025, "final_year": 2024}
+    with open(file_path, "w", encoding="utf-8") as settings_file:
+        yaml.safe_dump(settings, settings_file)
+
+    with pytest.raises(ValueError, match="final_year"):
+        Pmodel_initial.read_global_settings(str(file_path))
+
+
+@pytest.mark.parametrize(
+    ("execution", "message"),
+    [
+        (None, "execution' mapping"),
+        ({"initial_year": True, "final_year": 2024}, "must be integers"),
+    ],
+)
+def test_read_global_settings_rejects_invalid_execution_settings(
+    valid_yaml_file, execution, message
+):
+    """Test that execution settings must be a mapping with integer years."""
+    file_path, settings = valid_yaml_file
+    settings["execution"] = execution
+    with open(file_path, "w", encoding="utf-8") as settings_file:
+        yaml.safe_dump(settings, settings_file)
+
+    with pytest.raises(ValueError, match=message):
+        Pmodel_initial.read_global_settings(str(file_path))
+
+
+def test_read_global_settings_rejects_reordered_model_variables(valid_yaml_file):
+    """Test that model variables must follow the solver compartment order."""
+    file_path, settings = valid_yaml_file
+    settings["ode_system"]["model_variables"] = [
+        "adults",
+        "imm",
+        "juv",
+        "ed",
+        "eggs",
+    ]
+    with open(file_path, "w", encoding="utf-8") as settings_file:
+        yaml.safe_dump(settings, settings_file)
+
+    with pytest.raises(ValueError, match="model_variables"):
+        Pmodel_initial.read_global_settings(str(file_path))
 
 
 # ----  Unit tests for check_all_paths_exist
@@ -741,25 +792,22 @@ def test_preprocess_dataset_rename_and_transpose(sample_dataset):
 def test_preprocess_dataset_rename_raises_key_error(sample_dataset):
     """Test that a ValueError is raised for a non-existent dimension in rename map."""
     rename_map = {"z": "time"}
-    with pytest.raises(Exception) as excinfo:
+    with pytest.raises(ValueError, match="z"):
         Pmodel_initial.preprocess_dataset(sample_dataset, names_dimensions=rename_map)
-    assert "z" in str(excinfo.value)
 
 
 def test_preprocess_dataset_transpose_raises_error_non_existent_dim(sample_dataset):
     """Test that an error is raised if a dimension in the order does not exist."""
     order = ("x", "y", "z")
-    with pytest.raises(Exception) as excinfo:
+    with pytest.raises(ValueError, match="z"):
         Pmodel_initial.preprocess_dataset(sample_dataset, dimension_order=order)
-    assert "z" in str(excinfo.value)
 
 
 def test_preprocess_dataset_transpose_raises_error_incomplete_order(sample_dataset):
     """Test that a ValueError is raised for an incomplete dimension order."""
     order = ("x",)
-    with pytest.raises(Exception) as excinfo:
+    with pytest.raises(ValueError, match="dimension_order"):
         Pmodel_initial.preprocess_dataset(sample_dataset, dimension_order=order)
-    assert "order" in str(excinfo.value) or excinfo.type is Exception
 
 
 def test_preprocess_dataset_with_empty_dataset():
@@ -884,6 +932,56 @@ def test_align_xarray_datasets_identical_grids(alignment_datasets):
     # The misaligned_ds is used as both, since it has a valid grid
     aligned_ds = Pmodel_initial.align_xarray_datasets(misaligned_ds, misaligned_ds)
     xr.testing.assert_identical(aligned_ds, misaligned_ds)
+
+
+def test_align_xarray_datasets_reraises_interpolation_error(
+    alignment_datasets, monkeypatch
+):
+    """Test that coordinate interpolation errors are logged and propagated."""
+    misaligned_ds, fixed_ds = alignment_datasets
+
+    def raise_interpolation_error(*_args, **_kwargs):
+        raise RuntimeError("interpolation failed")
+
+    monkeypatch.setattr(xr.Dataset, "interp", raise_interpolation_error)
+
+    with pytest.raises(RuntimeError, match="interpolation failed"):
+        Pmodel_initial.align_xarray_datasets(misaligned_ds, fixed_ds)
+
+
+def test_align_xarray_datasets_identical_grids_preserves_nan_pattern():
+    """Identical grids must not be interpolated because that can spread NaNs."""
+    dataset = xr.Dataset(
+        {
+            "dens": (
+                ("longitude", "latitude", "time"),
+                np.array(
+                    [
+                        [[1.0], [np.nan], [3.0]],
+                        [[4.0], [5.0], [6.0]],
+                        [[7.0], [8.0], [9.0]],
+                    ],
+                    dtype=np.float64,
+                ),
+            )
+        },
+        coords={
+            "longitude": [0.0, 0.5, 1.0],
+            "latitude": [10.0, 10.5, 11.0],
+            "time": [0],
+        },
+    )
+    reference = xr.Dataset(
+        coords={
+            "longitude": dataset.longitude.copy(),
+            "latitude": dataset.latitude.copy(),
+        }
+    )
+
+    aligned = Pmodel_initial.align_xarray_datasets(dataset, reference)
+
+    xr.testing.assert_identical(aligned, dataset)
+    assert int(np.isnan(aligned["dens"].values).sum()) == 1
 
 
 def test_align_xarray_datasets_with_extra_dims(multidim_alignment_datasets):
@@ -1506,7 +1604,7 @@ def test_load_initial_conditions_corrupt_file(corrupted_netcdf_file, mock_etl_se
     """
     Tests that an error is raised when the input file is corrupt.
     """
-    with pytest.raises(Exception):  # noqa: B017
+    with pytest.raises((OSError, ValueError)):
         Pmodel_initial.load_initial_conditions(
             filepath=corrupted_netcdf_file, sizes=(2, 2), **mock_etl_settings
         )
@@ -1673,8 +1771,34 @@ def test_load_all_data_happy_path(
     xr.testing.assert_identical(
         result.temperature_mean, mock_model_inputs["da_temp_mean"]
     )
-    xr.testing.assert_identical(
-        result.latitude, mock_model_inputs["da_temp_mean"]["latitude"]
+
+
+def test_load_all_data_daily_does_not_create_repeated_temperature(
+    monkeypatch,
+    test_dataset_paths,
+    test_etl_settings,
+):
+    def fail_create_temperature_daily(*_args, **_kwargs):
+        raise AssertionError("load_all_data_daily must not repeat temperature")
+
+    monkeypatch.setattr(
+        Pmodel_initial,
+        "create_temperature_daily",
+        fail_create_temperature_daily,
+    )
+
+    result = Pmodel_initial.load_all_data_daily(
+        paths=test_dataset_paths,
+        etl_settings=test_etl_settings,
+    )
+
+    assert isinstance(result, Pmodel_initial.PmodelInput)
+    assert result.temperature_mean.sizes["time"] > 0
+    assert result.temperature.sizes["time"] == 0
+    assert result.rainfall.shape == result.temperature_mean.shape
+    assert (
+        result.population_density.sizes["longitude"]
+        == result.temperature_mean.sizes["longitude"]
     )
 
 
@@ -1918,7 +2042,7 @@ def test_load_initial_conditions_variable_extract_failure(tmp_path, mock_etl_set
     )
     ds.to_netcdf(filepath)
 
-    with pytest.raises(Exception):  # noqa: B017
+    with pytest.raises(ValueError, match="time"):
         Pmodel_initial.load_initial_conditions(
             filepath=filepath,
             sizes=(2, 2),

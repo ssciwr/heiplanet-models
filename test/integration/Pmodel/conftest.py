@@ -1,19 +1,22 @@
+import argparse
+from io import StringIO
 from pathlib import Path
 
 import numpy as np
 import pytest
 import xarray as xr
+from rich.console import Console
 
-from heiplanet_models.Pmodel.Pmodel_initial import (
-    assemble_filepaths,
-    check_all_paths_exist,
-    load_all_data,
-    read_global_settings,
+from heiplanet_models.Pmodel.Pmodel_initial import read_global_settings
+from scripts.pipeline_utils import StageRunner
+from scripts.run_pmodel_pipeline import (
+    DEFAULT_CHUNK_LAT,
+    DEFAULT_CHUNK_LON,
+    DEFAULT_SCIPY_ATOL,
+    DEFAULT_SCIPY_METHOD,
+    DEFAULT_SCIPY_RTOL,
+    run_year,
 )
-from heiplanet_models.Pmodel.Pmodel_ode import solve_system
-from heiplanet_models.Pmodel.Pmodel_output import build_output_dataset
-from heiplanet_models.Pmodel.Pmodel_rates_birth import water_hatching
-from heiplanet_models.Pmodel.Pmodel_rates_development import carrying_capacity
 
 
 @pytest.fixture
@@ -41,41 +44,23 @@ def integration_etl_settings(tmp_path: Path, repo_root: Path) -> dict:
 
 @pytest.fixture
 def run_pipeline():
-    """Execute the same pipeline stages as scripts/run_model.py and return outputs."""
+    """Execute the current Pmodel script pipeline with legacy-compatible settings."""
 
-    def _run(etl_settings: dict) -> tuple[xr.Dataset, xr.DataArray]:
-        paths = assemble_filepaths(year=None, **etl_settings)
-        assert check_all_paths_exist(paths)
-
-        model_data = load_all_data(paths=paths, etl_settings=etl_settings)
-
-        capacity = carrying_capacity(
-            rainfall_data=model_data.rainfall,
-            population_data=model_data.population_density,
+    def _run(etl_settings: dict) -> Path:
+        args = argparse.Namespace(
+            backend="legacy_optimized",
+            chunk_lon=DEFAULT_CHUNK_LON,
+            chunk_lat=DEFAULT_CHUNK_LAT,
+            scipy_method=DEFAULT_SCIPY_METHOD,
+            scipy_rtol=DEFAULT_SCIPY_RTOL,
+            scipy_atol=DEFAULT_SCIPY_ATOL,
         )
-        eggs_active = water_hatching(
-            rainfall_data=model_data.rainfall,
-            population_data=model_data.population_density,
+        return run_year(
+            year=None,
+            args=args,
+            etl_settings=etl_settings,
+            stage=StageRunner(Console(file=StringIO())),
         )
-
-        ode_solution = solve_system(
-            state=model_data.initial_conditions,
-            temperature=model_data.temperature,
-            temperature_mean=model_data.temperature_mean,
-            latitudes=model_data.latitude,
-            carrying_capacity=capacity,
-            egg_activate=eggs_active,
-            time_step=etl_settings["ode_system"]["time_step"],
-        )
-
-        compartments = etl_settings["ode_system"]["model_variables"]
-        output_dataset = build_output_dataset(
-            state=ode_solution,
-            model_data=model_data,
-            compartments=compartments,
-        )
-
-        return output_dataset, model_data.temperature_mean
 
     return _run
 

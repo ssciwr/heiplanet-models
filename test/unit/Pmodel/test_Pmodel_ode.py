@@ -11,7 +11,20 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from heiplanet_models.Pmodel import Pmodel_ode
 from heiplanet_models.Pmodel.Pmodel_ode import (
+    SolverFallbackMetrics,
+    _ensure_1d_dataarray,
+    _ensure_3d_dataarray,
+    _log_fallback_metrics,
+    _log_scipy_capacity_mask,
+    _normalize_solver_inputs,
+    _solve_system_scipy_loaded_chunk,
+    _spatial_chunks,
+    _validate_daily_time_lengths,
+    _validate_scipy_method,
+    _validate_spatial_shapes,
+    _validate_steps_per_day,
     albopictus_log_ode_system,
     albopictus_ode_system,
     rk4_step,
@@ -83,6 +96,174 @@ def assert_no_negatives(result):
 def assert_nan_propagation(result):
     """Assert that result contains NaN values (for NaN propagation tests)."""
     assert np.any(np.isnan(result)), "NaN values were not propagated"
+
+
+def test_log_fallback_metrics_warns_when_recovery_occurs(caplog):
+    """Test that numerical recovery is reported once with both event counts."""
+    metrics = SolverFallbackMetrics(
+        derivative_substitutions=2,
+        output_normalizations=3,
+    )
+
+    with caplog.at_level("WARNING"):
+        _log_fallback_metrics("scipy_chunked", metrics)
+
+    assert "2 derivative substitutions, 3 output normalizations" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("time_step", "message"),
+    [(np.nan, "finite"), (1.5, "integer-like"), (0, "positive")],
+)
+def test_solver_time_step_validation_rejects_invalid_values(time_step, message):
+    """Test that solver time steps must be finite positive integers."""
+    with pytest.raises(ValueError, match=message):
+        _validate_steps_per_day(time_step)
+
+
+def test_solver_validation_rejects_invalid_method_and_shapes():
+    """Test validation errors for unsupported methods and malformed arrays."""
+    with pytest.raises(ValueError, match="Unknown scipy_method"):
+        _validate_scipy_method("invalid")
+
+    with pytest.raises(ValueError, match="must contain dimensions"):
+        _ensure_3d_dataarray(xr.DataArray([1.0], dims=["time"]), "temperature")
+    with pytest.raises(ValueError, match="must be a 3D array"):
+        _ensure_3d_dataarray(np.ones((1, 1)), "temperature")
+    with pytest.raises(ValueError, match="must contain dimension"):
+        _ensure_1d_dataarray(xr.DataArray([1.0], dims=["longitude"]), "latitudes")
+    with pytest.raises(ValueError, match="must be a 1D array"):
+        _ensure_1d_dataarray(np.ones((1, 1)), "latitudes")
+
+
+def test_solver_normalization_accepts_numpy_arrays_and_rejects_extra_dimensions():
+    """Test canonical NumPy conversion and dimensional validation paths."""
+    spatial_data = np.ones((1, 1, 1))
+    latitude_data = np.ones(1)
+
+    normalized = _normalize_solver_inputs(
+        state=np.ones((1, 1, 5)),
+        temperature=None,
+        temperature_mean=spatial_data,
+        latitudes=latitude_data,
+        carrying_capacity=spatial_data,
+        egg_activate=spatial_data,
+        time_step=1,
+        require_temperature=False,
+        validate_temperature_spatial_shape=False,
+    )
+
+    assert normalized.temperature is None
+    assert normalized.temperature_mean.dims == ("longitude", "latitude", "time")
+    assert normalized.latitudes.dims == ("latitude",)
+
+    with pytest.raises(ValueError, match="temperature spatial shape"):
+        _normalize_solver_inputs(
+            state=np.ones((1, 1, 5)),
+            temperature=None,
+            temperature_mean=np.ones((2, 1, 1)),
+            latitudes=latitude_data,
+            carrying_capacity=np.ones((1, 1, 1)),
+            egg_activate=np.ones((1, 1, 1)),
+            time_step=1,
+            require_temperature=False,
+            validate_temperature_spatial_shape=True,
+        )
+
+    with pytest.raises(ValueError, match="must be 3D"):
+        _ensure_3d_dataarray(
+            xr.DataArray(
+                np.ones((1, 1, 1, 1)),
+                dims=["longitude", "latitude", "time", "extra"],
+            ),
+            "temperature",
+        )
+    with pytest.raises(ValueError, match="must be 1D"):
+        _ensure_1d_dataarray(
+            xr.DataArray(np.ones((1, 1)), dims=["latitude", "extra"]),
+            "latitudes",
+        )
+
+
+def test_solver_validation_rejects_incompatible_input_dimensions():
+    """Test validation errors for incompatible spatial and temporal inputs."""
+    daily = xr.DataArray(np.ones((1, 1, 1)), dims=["longitude", "latitude", "time"])
+    with pytest.raises(ValueError, match="state must have shape"):
+        _validate_spatial_shapes(
+            state=np.ones((1, 1)),
+            temperature=daily,
+            temperature_mean=daily,
+            carrying_capacity=daily.values,
+            egg_activate=daily.values,
+        )
+    with pytest.raises(ValueError, match="must contain 5 model variables"):
+        _validate_spatial_shapes(
+            state=np.ones((1, 1, 4)),
+            temperature=daily,
+            temperature_mean=daily,
+            carrying_capacity=daily.values,
+            egg_activate=daily.values,
+        )
+    with pytest.raises(ValueError, match="temperature spatial shape"):
+        _validate_spatial_shapes(
+            state=np.ones((1, 1, 5)),
+            temperature=xr.DataArray(
+                np.ones((2, 1, 1)), dims=["longitude", "latitude", "time"]
+            ),
+            temperature_mean=daily,
+            carrying_capacity=daily.values,
+            egg_activate=daily.values,
+        )
+    with pytest.raises(ValueError, match="at least one daily"):
+        _validate_daily_time_lengths(
+            temperature=None,
+            temperature_mean=xr.DataArray(
+                np.ones((1, 1, 0)), dims=["longitude", "latitude", "time"]
+            ),
+            steps_per_day=1,
+        )
+    with pytest.raises(ValueError, match="Expected temperature time length"):
+        _validate_daily_time_lengths(
+            temperature=daily,
+            temperature_mean=daily,
+            steps_per_day=2,
+        )
+
+
+def test_solver_validation_requires_temperature_for_legacy_backends():
+    """Test that legacy solver normalization requires sub-daily temperature."""
+    with pytest.raises(ValueError, match="temperature is required"):
+        _normalize_solver_inputs(
+            state=np.ones((1, 1, 5)),
+            temperature=None,
+            temperature_mean=np.ones((1, 1, 1)),
+            latitudes=np.ones(1),
+            carrying_capacity=np.ones((1, 1, 1)),
+            egg_activate=np.ones((1, 1, 1)),
+            time_step=1,
+            require_temperature=True,
+            validate_temperature_spatial_shape=True,
+        )
+
+
+def test_spatial_chunk_validation_and_capacity_logging(caplog):
+    """Test invalid spatial chunks and both capacity status log messages."""
+    with pytest.raises(ValueError, match="must be positive"):
+        list(_spatial_chunks(1, 1, 0, 1))
+
+    with caplog.at_level("INFO"):
+        _log_scipy_capacity_mask("scipy_chunked", np.array([[True]]))
+    assert "solving all 1 spatial cells" in caplog.text
+
+    with caplog.at_level("WARNING"):
+        _log_scipy_capacity_mask("scipy_chunked", np.array([[False]]))
+    assert "skipped 1/1 spatial cells" in caplog.text
+
+
+def test_rk4_step_requires_a_step_count():
+    """Test that legacy RK4 requires either step-count argument."""
+    with pytest.raises(TypeError, match="requires steps_per_day"):
+        rk4_step(zero_ode, dummy_log_ode_safe, np.ones((1, 1, 5)), ())
 
 
 # =============================================================================
@@ -591,3 +772,231 @@ def test_call_function_seasonal_diapause_reset_branch(
 
     # Compartment index 1 (diapause eggs) is reset on day 200 and then stored.
     assert np.allclose(result[:, :, 1, 200], 0.0)
+
+
+# ---- Tests for solver backends
+
+
+def create_stable_backend_inputs(n_time=3):
+    state = xr.DataArray(
+        np.full((1, 1, 5), 2.0, dtype=np.float64),
+        dims=["longitude", "latitude", "variable"],
+    )
+    temperature = xr.DataArray(
+        np.full((1, 1, n_time), 22.0, dtype=np.float64),
+        dims=["longitude", "latitude", "time"],
+    )
+    temperature_mean = xr.DataArray(
+        np.full((1, 1, n_time), 22.0, dtype=np.float64),
+        dims=["longitude", "latitude", "time"],
+    )
+    latitudes = xr.DataArray(
+        np.array([45.0], dtype=np.float64),
+        dims=["latitude"],
+    )
+    carrying_capacity = xr.DataArray(
+        np.full((1, 1, n_time), 1000.0, dtype=np.float64),
+        dims=["longitude", "latitude", "time"],
+    )
+    egg_activate = xr.DataArray(
+        np.full((1, 1, n_time), 0.5, dtype=np.float64),
+        dims=["longitude", "latitude", "time"],
+    )
+    return (
+        state,
+        temperature,
+        temperature_mean,
+        latitudes,
+        carrying_capacity,
+        egg_activate,
+    )
+
+
+def create_repeated_temperature_backend_inputs(n_days=3, time_step=2, n_lon=1, n_lat=1):
+    state = xr.DataArray(
+        np.full((n_lon, n_lat, 5), 2.0, dtype=np.float64),
+        dims=["longitude", "latitude", "variable"],
+    )
+    temperature_mean = xr.DataArray(
+        np.full((n_lon, n_lat, n_days), 22.0, dtype=np.float64),
+        dims=["longitude", "latitude", "time"],
+    )
+    temperature = xr.DataArray(
+        np.repeat(temperature_mean.values, repeats=time_step, axis=2),
+        dims=["longitude", "latitude", "time"],
+    )
+    latitudes = xr.DataArray(
+        np.linspace(45.0, 46.0, n_lat, dtype=np.float64),
+        dims=["latitude"],
+    )
+    carrying_capacity = xr.DataArray(
+        np.full((n_lon, n_lat, n_days), 1000.0, dtype=np.float64),
+        dims=["longitude", "latitude", "time"],
+    )
+    egg_activate = xr.DataArray(
+        np.full((n_lon, n_lat, n_days), 0.5, dtype=np.float64),
+        dims=["longitude", "latitude", "time"],
+    )
+    return (
+        state,
+        temperature,
+        temperature_mean,
+        latitudes,
+        carrying_capacity,
+        egg_activate,
+    )
+
+
+def test_solve_system_rejects_unknown_backend():
+    inputs = create_stable_backend_inputs()
+
+    with pytest.raises(ValueError, match="Unknown solver backend"):
+        solve_system(*inputs, time_step=1.0, backend="unknown")
+
+
+def test_legacy_optimized_matches_legacy_on_stable_fixture():
+    inputs = create_stable_backend_inputs()
+
+    legacy = solve_system(*inputs, time_step=1.0, backend="legacy")
+    optimized = solve_system(*inputs, time_step=1.0, backend="legacy_optimized")
+
+    np.testing.assert_allclose(optimized, legacy, rtol=1e-10, atol=1e-10)
+
+
+def test_spatial_chunks_cover_grid_once():
+    covered = np.zeros((5, 4), dtype=np.int64)
+
+    for lon_slice, lat_slice in _spatial_chunks(5, 4, 2, 3):
+        covered[lon_slice, lat_slice] += 1
+
+    np.testing.assert_array_equal(covered, 1)
+
+
+def test_scipy_chunked_backend_smoke_test_on_repeated_temperature_fixture():
+    inputs = create_repeated_temperature_backend_inputs(
+        n_days=2,
+        time_step=2,
+        n_lon=2,
+        n_lat=2,
+    )
+
+    result = solve_system(
+        *inputs,
+        time_step=2,
+        backend="scipy_chunked",
+        scipy_method="RK45",
+        scipy_rtol=1e-6,
+        scipy_atol=1e-9,
+        chunk_lon=1,
+        chunk_lat=1,
+    )
+
+    assert result.shape == (2, 2, 5, 2)
+    assert_all_finite(result)
+    assert_no_negatives(result)
+
+
+def test_scipy_chunked_backend_skips_invalid_carrying_capacity_cell():
+    inputs = list(
+        create_repeated_temperature_backend_inputs(
+            n_days=2,
+            time_step=2,
+            n_lon=2,
+            n_lat=1,
+        )
+    )
+    carrying_capacity = inputs[4].copy()
+    carrying_capacity.values[1, 0, :] = np.nan
+    inputs[4] = carrying_capacity
+
+    result = solve_system(
+        *inputs,
+        time_step=2,
+        backend="scipy_chunked",
+        chunk_lon=1,
+        chunk_lat=1,
+    )
+
+    assert result.shape == (2, 1, 5, 2)
+    assert_all_finite(result)
+    assert_no_negatives(result)
+    assert np.any(result[0, 0, :, :] > 0)
+    np.testing.assert_array_equal(result[1, 0, :, :], 0.0)
+
+
+def test_scipy_chunked_backend_returns_zero_when_all_capacity_is_invalid():
+    """Test that a fully invalid capacity grid avoids SciPy integration."""
+    inputs = list(create_repeated_temperature_backend_inputs(n_days=2))
+    inputs[4].values[:] = np.nan
+
+    result = solve_system(*inputs, time_step=2, backend="scipy_chunked")
+
+    np.testing.assert_array_equal(result, 0.0)
+
+
+def test_scipy_loaded_chunk_raises_when_solver_fails(monkeypatch):
+    """Test that SciPy failures retain backend, method, and day context."""
+    inputs = create_repeated_temperature_backend_inputs(n_days=1, time_step=1)
+
+    class FailedSolution:
+        success = False
+        message = "integration failed"
+
+    monkeypatch.setattr(
+        Pmodel_ode, "solve_ivp", lambda *_args, **_kwargs: FailedSolution()
+    )
+
+    with pytest.raises(RuntimeError, match="test-backend/RK45 day 1 failed"):
+        _solve_system_scipy_loaded_chunk(
+            *inputs,
+            time_step=1,
+            scipy_method="RK45",
+            scipy_rtol=1e-6,
+            scipy_atol=1e-9,
+            backend_label="test-backend",
+        )
+
+
+@pytest.mark.parametrize("backend", ["legacy", "legacy_optimized"])
+def test_legacy_backends_reset_diapause_eggs_on_seasonal_day(monkeypatch, backend):
+    """Test the day-200 seasonal reset without performing RK4 integration."""
+    inputs = create_repeated_temperature_backend_inputs(n_days=200, time_step=1)
+    monkeypatch.setattr(
+        Pmodel_ode, "rk4_step", lambda _ode, _log_ode, state, _params, _steps: state
+    )
+
+    result = solve_system(*inputs, time_step=1, backend=backend)
+
+    np.testing.assert_array_equal(result[..., 1, -1], 0.0)
+
+
+def test_scipy_chunked_is_independent_of_chunk_partition_on_stable_fixture():
+    inputs = create_repeated_temperature_backend_inputs(
+        n_days=3,
+        time_step=2,
+        n_lon=2,
+        n_lat=2,
+    )
+
+    daily = solve_system(
+        *inputs,
+        time_step=2,
+        backend="scipy_chunked",
+        scipy_method="DOP853",
+        scipy_rtol=1e-9,
+        scipy_atol=1e-12,
+        chunk_lon=2,
+        chunk_lat=2,
+    )
+    chunked = solve_system(
+        *inputs,
+        time_step=2,
+        backend="scipy_chunked",
+        scipy_method="DOP853",
+        scipy_rtol=1e-9,
+        scipy_atol=1e-12,
+        chunk_lon=1,
+        chunk_lat=1,
+    )
+
+    np.testing.assert_allclose(chunked, daily, rtol=1e-8, atol=1e-9)
