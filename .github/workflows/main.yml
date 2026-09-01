@@ -48,3 +48,4 @@ jobs:
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         slug: ssciwr/heiplanet-models
+        flags: unit
