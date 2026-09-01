@@ -89,6 +89,13 @@ exclude_also = [
 
 fail_under = 80
 
+[tool.ruff.lint]
+ignore = [
+    # Module names match the model class they define (e.g. Jmodel.py, Pmodel_*.py);
+    # renaming to snake_case would break imports across src/test/docs/scripts.
+    "N999",
+]
+
 [tool.pytest.ini_options]
 markers = [
   "integration: end-to-end tests with filesystem and model pipeline",

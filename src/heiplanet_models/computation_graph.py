@@ -5,21 +5,22 @@ This module defines the ComputationGraph class. This class represents a model as
 # compatability with python 3.10+
 from __future__ import annotations
 
+import inspect
+import json
+import logging
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any, ClassVar
+
 # dask needed for parallel execution and lazy evaluation
 import dask
-from dask.delayed import Delayed
 
 # stdlib imports
 import distributed
-import json
-from typing import Callable, Any
-from pathlib import Path
-import inspect
+from dask.delayed import Delayed
 
 # internals
-from . import Jmodel
-from . import utils
-import logging
+from . import Jmodel, utils
 
 
 class ComputationGraph:
@@ -34,13 +35,13 @@ class ComputationGraph:
         sink_node (Delayed | None): The sink node of the computational graph, which is the final node that triggers the execution of the entire computation.
     """
 
-    module_functions: dict[str, dict[str, Callable]] = {}
+    module_functions: dict[str, dict[str, Callable]]
     config: dict[str, Any] = None  # Configuration for the computation
     sink_node: Delayed | None = None  # The sink node of the computational graph
     task_graph: dict[str, Delayed] | None = None
     sink_node_name: str | None = None
     scheduler: str | None = None  # The Dask scheduler to use for execution
-    default_modules: set[str] = {
+    default_modules: ClassVar[set[str]] = {
         "utils",
         "Jmodel",
     }  # README: we need a better way to manage default modules
@@ -63,11 +64,7 @@ class ComputationGraph:
         self.config = config
 
         self.logger = logging.getLogger("ComputationGraph")
-        self.logger.setLevel(
-            logging.DEBUG
-            if "log_level" not in config["execution"]
-            else config["execution"]["log_level"]
-        )
+        self.logger.setLevel(config["execution"].get("log_level", logging.DEBUG))
         # load needed code.
         self.module_functions = self._get_functions_from_module(config)
 
@@ -146,7 +143,7 @@ class ComputationGraph:
         all_inputs = set(all_inputs)
 
         sink_node = None
-        for node_name, _ in config["graph"].items():
+        for node_name in config["graph"]:
             if node_name not in all_inputs:
                 if sink_node is not None:
                     raise ValueError(
@@ -353,7 +350,7 @@ class ComputationGraph:
         )
 
     @classmethod
-    def from_config(cls, path_to_config: str | Path) -> "ComputationGraph":
+    def from_config(cls, path_to_config: str | Path) -> ComputationGraph:
         """Creates a `ComputationGraph` instance from a configuration dictionary read from a json file."""
         with open(path_to_config, "r") as f:
             config = json.load(f)

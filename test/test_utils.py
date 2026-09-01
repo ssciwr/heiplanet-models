@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 import xarray as xr
 
-
 from heiplanet_models.utils import (
     load_module,
     load_name_from_module,

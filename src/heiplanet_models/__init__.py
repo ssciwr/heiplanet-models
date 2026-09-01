@@ -1,6 +1,4 @@
-from . import computation_graph
-from . import utils
-from . import Jmodel
+from . import Jmodel, computation_graph, utils
 
 # Import the version from the package metadata or provide a fallback
 # if that is not possible
@@ -12,4 +10,4 @@ except ImportError:
     __version__ = "unknown"
 
 # Optional: Define what gets imported with "from heiplanet_models import *"
-__all__ = ["Jmodel", "utils", "computation_graph", "__version__"]
+__all__ = ["Jmodel", "__version__", "computation_graph", "utils"]

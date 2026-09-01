@@ -9,12 +9,12 @@ Typical usage example:
 """
 
 import logging
-import yaml
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
-import xarray as xr
 import numpy as np
+import xarray as xr
+import yaml
 
 from heiplanet_models.Pmodel.Pmodel_input import PmodelInput
 from heiplanet_models.Pmodel.Pmodel_output import PmodelOutput
@@ -45,7 +45,7 @@ def read_global_settings(filepath_configuration_file: str) -> dict[str, Any]:
     return global_settings
 
 
-def check_all_paths_exist(path_dict: dict[str, Union[str, Path]]) -> bool:
+def check_all_paths_exist(path_dict: dict[str, str | Path]) -> bool:
     """Check if all values in the dictionary are existing filesystem paths.
 
     Args:
@@ -117,7 +117,7 @@ def assemble_filepaths(year: int | None = None, **etl_settings) -> dict[str, Pat
     return dict_paths
 
 
-def load_dataset(path_dataset: Union[Path, str], **kwargs) -> xr.Dataset:
+def load_dataset(path_dataset: Path | str, **kwargs) -> xr.Dataset:
     """Load an xarray dataset from a file path.
 
     Args:
@@ -160,8 +160,8 @@ def preprocess_dataset(dataset: xr.Dataset, **kwargs) -> xr.Dataset:
             logger.debug(f"Before renaming dimensions: {dataset.dims}")
             dataset = dataset.rename(name_dict=names_dimensions)
             logger.debug(f"After renaming dimensions: {dataset.dims}")
-        except Exception as e:
-            logger.exception(f"Error during rename: {e}")
+        except Exception:
+            logger.exception("Error during rename")
             logger.debug(f"Available dimensions: {dataset.dims}")
             raise
 
@@ -180,8 +180,8 @@ def preprocess_dataset(dataset: xr.Dataset, **kwargs) -> xr.Dataset:
         try:
             logger.debug(f"Before transpose dimensions: {dataset.dims}")
             dataset = dataset.transpose(*dimension_order)
-        except Exception as e:
-            logger.exception(f"Error during transpose: {e}")
+        except Exception:
+            logger.exception("Error during transpose")
             logger.debug(f"Available dimensions: {dataset.dims}")
             raise
 
@@ -189,7 +189,7 @@ def preprocess_dataset(dataset: xr.Dataset, **kwargs) -> xr.Dataset:
 
 
 def postprocess_dataset(
-    dataset: xr.Dataset, reference_dataset: Optional[xr.Dataset] = None, **kwargs
+    dataset: xr.Dataset, reference_dataset: xr.Dataset | None = None, **kwargs
 ) -> xr.Dataset:
     """Postprocess an xarray Dataset.
 
@@ -212,8 +212,8 @@ def postprocess_dataset(
             dataset = align_xarray_datasets(
                 misaligned_dataset=dataset, fixed_dataset=reference_dataset
             )
-        except Exception as e:
-            logger.exception(f"Error during alignment: {e}")
+        except Exception:
+            logger.exception("Error during alignment")
             raise
 
     return dataset
@@ -252,9 +252,7 @@ def align_xarray_datasets(
         raise
 
 
-def load_temperature_dataset(
-    path_dataset: Union[Path, str], **etl_settings
-) -> xr.Dataset:
+def load_temperature_dataset(path_dataset: Path | str, **etl_settings) -> xr.Dataset:
     """Load and preprocess the temperature dataset for a given path and ETL settings.
 
     Args:
@@ -284,7 +282,7 @@ def load_temperature_dataset(
     return dataset
 
 
-def load_rainfall_dataset(path_dataset: Union[Path, str], **etl_settings) -> xr.Dataset:
+def load_rainfall_dataset(path_dataset: Path | str, **etl_settings) -> xr.Dataset:
     """Load and preprocess the rainfall dataset for a given path and ETL settings.
 
     Args:
@@ -314,9 +312,7 @@ def load_rainfall_dataset(path_dataset: Union[Path, str], **etl_settings) -> xr.
     return dataset
 
 
-def load_population_dataset(
-    path_dataset: Union[Path, str], **etl_settings
-) -> xr.Dataset:
+def load_population_dataset(path_dataset: Path | str, **etl_settings) -> xr.Dataset:
     """Load and preprocess the human population dataset for a given path and ETL settings.
 
     Args:
@@ -396,7 +392,7 @@ def create_temperature_daily(
 
 
 def load_initial_conditions(
-    filepath: Optional[Union[Path, str]] = None,
+    filepath: Path | str | None = None,
     sizes: tuple[int, int] = (0, 0),
     **etl_settings,
 ) -> xr.DataArray:
@@ -478,8 +474,8 @@ def load_all_data(paths: dict[str, Any], etl_settings: dict[str, Any]) -> Pmodel
         temperature = load_temperature_dataset(
             path_dataset=paths["temperature_dataset"], **etl_settings
         )
-    except Exception as e:
-        logger.exception(f"Failed to load temperature dataset {e}")
+    except Exception:
+        logger.exception("Failed to load temperature dataset")
         raise
 
     # --- Load rainfall dataset
@@ -487,8 +483,8 @@ def load_all_data(paths: dict[str, Any], etl_settings: dict[str, Any]) -> Pmodel
         rainfall = load_rainfall_dataset(
             path_dataset=paths["rainfall_dataset"], **etl_settings
         )
-    except Exception as e:
-        logger.exception(f"Failed to load rainfall dataset {e}")
+    except Exception:
+        logger.exception("Failed to load rainfall dataset")
         raise
 
     # --- Load human population dataset
@@ -496,8 +492,8 @@ def load_all_data(paths: dict[str, Any], etl_settings: dict[str, Any]) -> Pmodel
         human_population = load_population_dataset(
             path_dataset=paths["human_population_dataset"], **etl_settings
         )
-    except Exception as e:
-        logger.exception(f"Failed to load human_population dataset {e}")
+    except Exception:
+        logger.exception("Failed to load human_population dataset")
         raise
 
     # ==== Posprocess datasets

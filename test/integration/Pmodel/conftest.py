@@ -5,15 +5,15 @@ import pytest
 import xarray as xr
 
 from heiplanet_models.Pmodel.Pmodel_initial import (
-    read_global_settings,
     assemble_filepaths,
     check_all_paths_exist,
     load_all_data,
+    read_global_settings,
 )
-from heiplanet_models.Pmodel.Pmodel_rates_birth import water_hatching
-from heiplanet_models.Pmodel.Pmodel_rates_development import carrying_capacity
 from heiplanet_models.Pmodel.Pmodel_ode import solve_system
 from heiplanet_models.Pmodel.Pmodel_output import build_output_dataset
+from heiplanet_models.Pmodel.Pmodel_rates_birth import water_hatching
+from heiplanet_models.Pmodel.Pmodel_rates_development import carrying_capacity
 
 
 @pytest.fixture

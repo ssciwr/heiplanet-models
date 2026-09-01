@@ -7,18 +7,10 @@ Tests are organized by function with clear visual separation.
 # IMPORTS
 # =============================================================================
 
-import pytest
-
 import numpy as np
+import pytest
 import xarray as xr
 
-
-from heiplanet_models.Pmodel.Pmodel_rates_birth import (
-    mosq_birth,
-    mosq_dia_hatch,
-    mosq_dia_lay,
-    water_hatching,
-)
 from heiplanet_models.Pmodel.Pmodel_params import (
     CONSTANTS_MOSQUITO_BIRTH,
     CONSTANTS_MOSQUITO_DIAPAUSE_HATCHING,
@@ -26,6 +18,12 @@ from heiplanet_models.Pmodel.Pmodel_params import (
     CONSTANTS_WATER_HATCHING,
     DAYS_YEAR,
     HALF_DAYS_YEAR,
+)
+from heiplanet_models.Pmodel.Pmodel_rates_birth import (
+    mosq_birth,
+    mosq_dia_hatch,
+    mosq_dia_lay,
+    water_hatching,
 )
 
 

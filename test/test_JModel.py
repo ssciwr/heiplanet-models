@@ -1,12 +1,14 @@
-from heiplanet_models import Jmodel as jm
-from heiplanet_models import computation_graph as cg
-import xarray as xr
+import json
+import math
 from pathlib import Path
+
+import numpy as np
 import pandas as pd
 import pytest
-import math
-import numpy as np
-import json
+import xarray as xr
+
+from heiplanet_models import Jmodel as jm
+from heiplanet_models import computation_graph as cg
 
 
 def test_jmodel_initialization():

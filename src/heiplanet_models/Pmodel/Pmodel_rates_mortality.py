@@ -1,14 +1,13 @@
 import logging
-from typing import Optional
 
 import numpy as np
 import xarray as xr
 
 from heiplanet_models.Pmodel.Pmodel_params import (
-    CONSTANTS_MORTALITY_MOSQUITO_E,
-    CONSTANTS_MORTALITY_MOSQUITO_J,
     CONSTANTS_MORTALITY_MOSQUITO_A,
+    CONSTANTS_MORTALITY_MOSQUITO_E,
     CONSTANTS_MORTALITY_MOSQUITO_ED,
+    CONSTANTS_MORTALITY_MOSQUITO_J,
 )
 
 logger = logging.getLogger(__name__)
@@ -90,9 +89,7 @@ def mosq_mort_a(temperature: xr.DataArray) -> xr.DataArray:
     )
 
 
-def mosq_surv_ed(
-    temperature: xr.DataArray, step_t: Optional[int] = None
-) -> xr.DataArray:
+def mosq_surv_ed(temperature: xr.DataArray, step_t: int | None = None) -> xr.DataArray:
     """
     Calculates mosquito survival rate as a function of temperature.
 
@@ -104,7 +101,7 @@ def mosq_surv_ed(
         xr.DataArray: DataArray of mosquito survival rates with the same shape as `temperature`.
     """
     if not isinstance(temperature, xr.DataArray):
-        raise ValueError("Input 'temperature' must be an xarray.DataArray.")
+        raise ValueError("Input 'temperature' must be an xarray.DataArray.")  # noqa: TRY004
     if temperature.ndim != 3:
         raise ValueError("Input 'temperature' must be a 3D DataArray.")
 

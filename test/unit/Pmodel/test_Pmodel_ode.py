@@ -10,10 +10,11 @@ Tests are organized by function with clear visual separation.
 import numpy as np
 import pytest
 import xarray as xr
+
 from heiplanet_models.Pmodel.Pmodel_ode import (
-    rk4_step,
-    albopictus_ode_system,
     albopictus_log_ode_system,
+    albopictus_ode_system,
+    rk4_step,
     solve_system,
 )
 

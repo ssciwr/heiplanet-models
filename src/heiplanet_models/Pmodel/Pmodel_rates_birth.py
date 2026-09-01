@@ -25,22 +25,20 @@ import logging
 import numpy as np
 import xarray as xr
 
-from heiplanet_models.utils_pmodel.solar_calculations import (
-    revolution_angle,
-    declination_angle,
-    daylight_forsythe,
-)
-
-from heiplanet_models.utils import validate_spatial_alignment
 from heiplanet_models.Pmodel.Pmodel_params import (
     CONSTANTS_MOSQUITO_BIRTH,
-    CONSTANTS_MOSQUITO_DIAPAUSE_LAY,
     CONSTANTS_MOSQUITO_DIAPAUSE_HATCHING,
+    CONSTANTS_MOSQUITO_DIAPAUSE_LAY,
     CONSTANTS_WATER_HATCHING,
     DAYS_YEAR,
     HALF_DAYS_YEAR,
 )
-
+from heiplanet_models.utils import validate_spatial_alignment
+from heiplanet_models.utils_pmodel.solar_calculations import (
+    daylight_forsythe,
+    declination_angle,
+    revolution_angle,
+)
 
 # ---- Logger
 logger = logging.getLogger(__name__)

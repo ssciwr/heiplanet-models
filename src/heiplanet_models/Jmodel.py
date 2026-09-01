@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import xarray as xr
-import pandas as pd
-import dask.array as da
-from pathlib import Path
-import numpy as np
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
+from pathlib import Path
+
+import dask.array as da
+import numpy as np
+import pandas as pd
+import xarray as xr
 
 
 @dataclass

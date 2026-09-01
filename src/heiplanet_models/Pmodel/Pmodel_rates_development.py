@@ -4,10 +4,10 @@ import numpy as np
 import xarray as xr
 
 from heiplanet_models.Pmodel.Pmodel_params import (
-    CONSTANTS_MOSQUITO_J,
-    CONSTANTS_MOSQUITO_I,
-    CONSTANTS_MOSQUITO_E,
     CONSTANTS_CARRYING_CAPACITY,
+    CONSTANTS_MOSQUITO_E,
+    CONSTANTS_MOSQUITO_I,
+    CONSTANTS_MOSQUITO_J,
 )
 
 logger = logging.getLogger(__name__)
