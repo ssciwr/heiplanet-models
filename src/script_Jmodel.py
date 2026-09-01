@@ -1,42 +1,80 @@
-import heiplanet_models as mb
-from pathlib import Path
-from datetime import datetime
 import json
+import logging
+from pathlib import Path
+from typing import Any
 
-data_path = Path("../heiplanet-data/.data_heiplanet_db/silver/")
-ro_file = "./data/in/R0_pip_stats.csv"
+import heiplanet_models as mb
+from heiplanet_models import utils
+
+logger = logging.getLogger(__name__)
+
+
+def configure_logging(level: int = logging.INFO) -> None:
+    logging.basicConfig(
+        format="[%(asctime)s] [%(levelname)-5s] [%(name)-25s] > %(message)s",
+        datefmt="%Y-%m-%d %H:%M",
+        level=level,
+        force=True,
+    )
+
+
+def main(config: dict[str, Any] | None = None) -> None:
+    """Run the Jmodel DAG for every matching input file.
+
+    Args:
+        config (dict[str, Any] | None): The config, in the shape of
+            `config_Jmodel.json` (a "run" block with paths/run settings, plus
+            "graph"/"execution" for `ComputationGraph`). Defaults to None,
+            which loads the packaged `config_Jmodel.json`.
+    """
+    if config is None:
+        config = utils.load_config()
+
+    run_cfg = config["run"]
+    data_path = Path(run_cfg["data_folder"])
+    files = [f for f in data_path.glob("*.nc") if run_cfg["file_match"] in f.name]
+
+    outpath = Path(run_cfg["output_folder"])
+    outpath.mkdir(parents=True, exist_ok=True)
+
+    if not files:
+        logger.warning(
+            "No input files found in %s matching %r", data_path, run_cfg["file_match"]
+        )
+
+    for file in files:
+        stem = file.stem
+        output = outpath / f"{stem}_output_JModel_global.nc"
+
+        if run_cfg.get("skip_existing") and output.exists():
+            logger.info("Skipping %s, output already exists at %s", file, output)
+            continue
+
+        logger.info("Processing %s", file)
+
+        # deep copy so each run gets its own config, isolated from the next
+        # iteration (and safe to hand to concurrent tasks later)
+        graph_config = json.loads(json.dumps(config))
+        graph_config["graph"]["setup_modeldata"]["kwargs"].update(
+            input=str(file),
+            output=str(output),
+            r0_path=run_cfg["r0_path"],
+            run_mode=run_cfg["run_mode"],
+            grid_data_baseurl=run_cfg["grid_data_baseurl"],
+            year=run_cfg["year"],
+        )
+
+        with open(outpath / f"{stem}_config.json", "w") as f:
+            json.dump(graph_config, f)
+
+        try:
+            computation = mb.computation_graph.ComputationGraph(graph_config)
+            computation.execute()
+        except Exception:
+            logger.exception("Failed processing %s", file)
+            continue
 
 
 if __name__ == "__main__":
-    # get all files in the data_path
-    files = list(data_path.glob("*.nc"))
-    # keep only the ones with t2m in the file name
-    files = [f for f in files if "2t" in f.name]
-    outpath = Path("data") / "out" / datetime.today().strftime("%Y-%m-%d")
-    outpath.mkdir(parents=True, exist_ok=True)
-    with open("./src/heiplanet_models/config_Jmodel.json", "r") as f:
-        global_config = json.load(f)
-    run_mode = "parallelized"
-    grid_data_baseurl = None
-    nuts_level = None
-    resolution = None
-    year = None
-    global_config["graph"]["setup_modeldata"]["kwargs"]["r0_path"] = str(ro_file)
-    global_config["graph"]["setup_modeldata"]["kwargs"]["run_mode"] = run_mode
-    global_config["graph"]["setup_modeldata"]["kwargs"]["grid_data_baseurl"] = (
-        grid_data_baseurl
-    )
-    global_config["graph"]["setup_modeldata"]["kwargs"]["year"] = year
-
-    for file in files:
-        print(file)
-        # get the base file name without the ending
-        data_file = file.name
-        data_file = data_file.rsplit(".", 1)[0]
-        output = outpath / (data_file + "_output_JModel_global.nc")
-        global_config["graph"]["setup_modeldata"]["kwargs"]["output"] = str(output)
-        global_config["graph"]["setup_modeldata"]["kwargs"]["input"] = str(file)
-        with open(outpath / (data_file + "_config.json"), "w") as f:
-            json.dump(global_config, f)
-        computation_global = mb.computation_graph.ComputationGraph(global_config)
-        computation_global.execute()
+    configure_logging()
+    main()
