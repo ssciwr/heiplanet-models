@@ -1,0 +1,21 @@
+codecov:
+  require_ci_to_pass: true
+
+flags:
+  unit:
+    paths:
+      - src/
+    carryforward: false
+  hf_integration:
+    paths:
+      - src/
+    carryforward: true
+
+coverage:
+  status:
+    project:
+      default:
+        target: 80
+    patch:
+      default:
+        target: 80

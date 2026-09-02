@@ -1,0 +1,39 @@
+name: Integration test
+on:
+  push:
+    branches:
+      - main  # run only on pushes to the main branch, slow
+  workflow_dispatch:
+jobs:
+  hf-integration-test-and-deploy-data:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+    steps:
+      - name: Getting repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install uv
+          uv pip install --system --no-cache-dir -e .[dev]
+
+      - name: Execute hf_integration tests
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python -m pytest -svv -m "hf_integration" --cov=src --cov-report=xml:coverage_re/coverage.xml
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./coverage_re/
+          flags: hf_integration
