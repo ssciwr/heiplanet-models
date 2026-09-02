@@ -85,3 +85,7 @@ ode_system:
         - "juv"
         - "imm"
         - "adults"
+
+execution:
+    initial_year: 2024
+    final_year: 2024

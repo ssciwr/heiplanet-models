@@ -15,6 +15,7 @@ from heiplanet_models.Pmodel.Pmodel_output import (
     PmodelOutput,
     assemble_output_filepath,
     build_output_dataset,
+    create_incremental_netcdf_writer,
     save_output_dataset,
 )
 
@@ -147,3 +148,74 @@ def test_save_output_dataset_roundtrip(
         assert reloaded.sizes["longitude"] == dataset.sizes["longitude"]
         assert reloaded.sizes["latitude"] == dataset.sizes["latitude"]
         assert reloaded.sizes["time"] == dataset.sizes["time"]
+
+
+def test_incremental_netcdf_writer_roundtrip(
+    tmp_path,
+    model_input_dummy_datasets,
+    synthetic_state,
+    compartments,
+):
+    output_path = tmp_path / "incremental.nc"
+
+    with create_incremental_netcdf_writer(
+        output_path=output_path,
+        model_data=model_input_dummy_datasets,
+        compartments=compartments,
+        chunk_lon=1,
+        chunk_lat=1,
+        attrs={"solver_backend": "scipy_chunked"},
+    ) as writer:
+        for lon_start in range(synthetic_state.shape[0]):
+            for lat_start in range(synthetic_state.shape[1]):
+                lon_slice = slice(lon_start, lon_start + 1)
+                lat_slice = slice(lat_start, lat_start + 1)
+                writer.write_chunk(
+                    lon_slice,
+                    lat_slice,
+                    synthetic_state[lon_slice, lat_slice],
+                )
+
+    assert output_path.exists()
+    with xr.open_dataset(output_path) as reloaded:
+        assert reloaded.attrs["solver_backend"] == "scipy_chunked"
+        assert set(reloaded.data_vars) == set(compartments)
+        assert reloaded[compartments[0]].encoding.get("zlib") is False
+        for index, name in enumerate(compartments):
+            np.testing.assert_allclose(
+                reloaded[name].values,
+                synthetic_state[:, :, index, :],
+            )
+
+
+def test_incremental_netcdf_writer_preserves_numeric_time_values(
+    tmp_path,
+    model_input_dummy_datasets,
+    synthetic_state,
+    compartments,
+):
+    """Test numeric time coordinates are written without datetime metadata."""
+    numeric_time = np.arange(
+        model_input_dummy_datasets.temperature_mean.sizes["time"], dtype=np.float64
+    )
+    model_input_dummy_datasets.temperature_mean = (
+        model_input_dummy_datasets.temperature_mean.assign_coords(time=numeric_time)
+    )
+    output_path = tmp_path / "numeric-time.nc"
+
+    with create_incremental_netcdf_writer(
+        output_path=output_path,
+        model_data=model_input_dummy_datasets,
+        compartments=compartments,
+        chunk_lon=1,
+        chunk_lat=1,
+    ) as writer:
+        writer.write_chunk(
+            slice(0, synthetic_state.shape[0]),
+            slice(0, synthetic_state.shape[1]),
+            synthetic_state,
+        )
+
+    with xr.open_dataset(output_path, decode_times=False) as reloaded:
+        np.testing.assert_allclose(reloaded.time.values, numeric_time)
+        assert "units" not in reloaded.time.attrs

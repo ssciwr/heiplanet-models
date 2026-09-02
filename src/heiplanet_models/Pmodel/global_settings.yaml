@@ -9,16 +9,20 @@ ingestion:
     
     filename_components:
         temperature_dataset: 
+            #prefix: "milan_temperature_"
             prefix: "ERA5land_global_t2m_daily_0.5_"
             suffix: 
             extension: ".nc"
         rainfall_dataset: 
+            #prefix: "milan_rainfall_"
             prefix: "ERA5land_global_tp_daily_0.5_"
             suffix: 
             extension: ".nc"
         human_population_dataset: 
+            #prefix: "milan_population_"
             prefix: "pop_dens_"
-            suffix: "_global_0.5"
+            #suffix: 
+            suffix: "_global_0.5_aligned"
             extension: ".nc"
 
     initial_conditions:
@@ -68,7 +72,7 @@ transformation:
 # ======                   SERVING SETTINGS                  ======
 # =================================================================
 serving: 
-    path_output_datasets: "data/in/Pratik_datalake"
+    path_output_datasets: "data/out/Pratik_datalake"
     filename_components:
         prefix: "Mosquito_abundance_Global_"
         suffix: 
@@ -78,6 +82,8 @@ serving:
 # ======                  ODE SYSTEM SETTINGS                ======
 # =================================================================
 ode_system:
+    # Production default for adaptive solvers. Use --time-step 10 in the
+    # benchmark/profiler when validating RK4 against Octave step_t=10.
     time_step: 10
     model_variables:
         - "eggs"
@@ -85,4 +91,11 @@ ode_system:
         - "juv"
         - "imm"
         - "adults"
+
+# =================================================================
+# ======                   EXECUTION SETTINGS                 ======
+# =================================================================
+execution:
+    initial_year: 2024
+    final_year: 2024
     
