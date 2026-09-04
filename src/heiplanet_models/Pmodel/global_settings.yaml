@@ -2,7 +2,7 @@
 # ======                      INGESTION SETTINGS                    ======
 # ========================================================================
 ingestion:
-    path_root_datasets: "data/in/Pratik_datalake"
+    path_root_datasets: ".data_heiplanet_db/silver/"
     
     xarray_load_settings:
         chunks: auto
@@ -48,6 +48,8 @@ transformation:
     rainfall_dataset:
         data_variable : "tp"
         preprocessing:
+            names_dimensions: 
+                "valid_time": "time"
             dimension_order: 
                 - "longitude"
                 - "latitude"
