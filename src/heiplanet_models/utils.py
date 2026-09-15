@@ -1,9 +1,31 @@
 from __future__ import annotations
 
 import importlib
+import json
+from importlib import resources
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 import xarray as xr
+
+pkg = resources.files("heiplanet_models")
+DEFAULT_CONFIG_FILE = Path(pkg / "config_Jmodel.json")
+
+
+def load_config(config_path: Path | str = "default") -> dict[str, Any]:
+    """Load the Jmodel configuration (run settings + computation graph).
+
+    Args:
+        config_path (Path | str): Path to a config file, or "default" to use
+            the packaged `config_Jmodel.json`. Defaults to "default".
+
+    Returns:
+        dict[str, Any]: The parsed configuration.
+    """
+    config_file = DEFAULT_CONFIG_FILE if config_path == "default" else Path(config_path)
+    with open(config_file, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 # helpers for loading code
