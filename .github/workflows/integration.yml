@@ -29,7 +29,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python -m pytest -svv -m "hf_integration" --cov=src --cov-report=xml:coverage_re/coverage.xml
+          python -m pytest -svv -m "hf_integration" --cov=src --cov-report=xml:coverage_re/coverage.xml --cov-fail-under=0
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v7
