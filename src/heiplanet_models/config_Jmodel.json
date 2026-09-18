@@ -1,4 +1,14 @@
 {
+"run": {
+    "data_folder": ".data_heiplanet_db/silver/",
+    "file_match": "2t",
+    "r0_path": "./data/in/R0_pip_stats.csv",
+    "output_folder": ".data_heiplanet_db/gold/",
+    "run_mode": "parallelized",
+    "grid_data_baseurl": null,
+    "year": null,
+    "skip_existing": true
+},
 "graph": {
     "setup_modeldata": {
         "function": "setup_modeldata",
