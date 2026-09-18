@@ -31,7 +31,13 @@ def main(config: dict[str, Any] | None = None) -> None:
         config = utils.load_config()
 
     run_cfg = config["run"]
+    if "data_folder" not in run_cfg:
+        raise KeyError("Config missing required 'run.data_folder' entry")
+
     data_path = Path(run_cfg["data_folder"])
+    if not data_path.is_dir():
+        raise FileNotFoundError(f"data_folder does not exist: {data_path}")
+
     files = [f for f in data_path.glob("*.nc") if run_cfg["file_match"] in f.name]
 
     outpath = Path(run_cfg["output_folder"])
@@ -45,6 +51,7 @@ def main(config: dict[str, Any] | None = None) -> None:
     for file in files:
         stem = file.stem
         output = outpath / f"{stem}_output_JModel_global.nc"
+        tmp_output = output.with_suffix(output.suffix + ".tmp")
 
         if run_cfg.get("skip_existing") and output.exists():
             logger.info("Skipping %s, output already exists at %s", file, output)
@@ -57,7 +64,7 @@ def main(config: dict[str, Any] | None = None) -> None:
         graph_config = json.loads(json.dumps(config))
         graph_config["graph"]["setup_modeldata"]["kwargs"].update(
             input=str(file),
-            output=str(output),
+            output=str(tmp_output),
             r0_path=run_cfg["r0_path"],
             run_mode=run_cfg["run_mode"],
             grid_data_baseurl=run_cfg["grid_data_baseurl"],
@@ -72,7 +79,12 @@ def main(config: dict[str, Any] | None = None) -> None:
             computation.execute()
         except Exception:
             logger.exception("Failed processing %s", file)
+            tmp_output.unlink(missing_ok=True)
             continue
+
+        # rename only on success, so `output` is never left half-written and
+        # skip_existing can trust that its presence means a completed run
+        tmp_output.rename(output)
 
 
 if __name__ == "__main__":
