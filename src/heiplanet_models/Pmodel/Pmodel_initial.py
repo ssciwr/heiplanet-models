@@ -157,7 +157,7 @@ def assemble_filepaths(year: int | None = None, **etl_settings) -> dict[str, Pat
     if year:
         dict_paths = {
             dataset_name: path_root
-            / f"{comp['prefix']}{year}{comp['suffix'] or ''}{comp['extension']}"
+            / f"{comp['prefix']}{comp['suffix'] or ''}{comp['extension']}"
             for dataset_name, comp in filename_components.items()
         }
 
