@@ -2,7 +2,7 @@
 # ======                      INGESTION SETTINGS                    ======
 # ========================================================================
 ingestion:
-    path_root_datasets: ".data_heiplanet_db/silver/"
+    path_root_datasets: ".data_heiplanet_db/reference/"
     
     xarray_load_settings:
         chunks: auto
@@ -10,19 +10,19 @@ ingestion:
     filename_components:
         temperature_dataset: 
             #prefix: "milan_temperature_"
-            prefix: "ERA5land_global_t2m_daily_0.5_"
+            prefix: "ERA5land_global_t2m_daily_0.5_2024"
             suffix: 
             extension: ".nc"
         rainfall_dataset: 
             #prefix: "milan_rainfall_"
-            prefix: "ERA5land_global_tp_daily_0.5_"
+            prefix: "ERA5land_global_tp_daily_0.5_2024"
             suffix: 
             extension: ".nc"
         human_population_dataset: 
             #prefix: "milan_population_"
-            prefix: "pop_dens_"
+            prefix: "pop_dens_2024_global_0.5_aligned"
             #suffix: 
-            suffix: "_global_0.5_aligned"
+            suffix: ""
             extension: ".nc"
 
     initial_conditions:
@@ -48,8 +48,6 @@ transformation:
     rainfall_dataset:
         data_variable : "tp"
         preprocessing:
-            names_dimensions: 
-                "valid_time": "time"
             dimension_order: 
                 - "longitude"
                 - "latitude"
@@ -74,7 +72,7 @@ transformation:
 # ======                   SERVING SETTINGS                  ======
 # =================================================================
 serving: 
-    path_output_datasets: "data/out/Pratik_datalake"
+    path_output_datasets: ".data_heiplanet_db/reference"
     filename_components:
         prefix: "Mosquito_abundance_Global_"
         suffix: 
