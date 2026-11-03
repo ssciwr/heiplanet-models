@@ -1000,3 +1000,57 @@ def test_scipy_chunked_is_independent_of_chunk_partition_on_stable_fixture():
     )
 
     np.testing.assert_allclose(chunked, daily, rtol=1e-8, atol=1e-9)
+
+
+class _RecordingWriter:
+    """Collect streamed chunks into an array for comparison."""
+
+    def __init__(self, shape):
+        self.output = np.full(shape, np.nan)
+        self.calls = 0
+
+    def write_chunk(self, lon_slice, lat_slice, output_chunk):
+        self.output[lon_slice, lat_slice] = output_chunk
+        self.calls += 1
+
+
+@pytest.mark.parametrize("lazy", [False, True])
+def test_scipy_chunked_streams_output_to_writer(lazy):
+    """Streaming writes the same values as the in-memory result, chunk by chunk."""
+    inputs = list(
+        create_repeated_temperature_backend_inputs(
+            n_days=2, time_step=2, n_lon=3, n_lat=2
+        )
+    )
+    kwargs = {
+        "time_step": 2,
+        "backend": "scipy_chunked",
+        "chunk_lon": 2,
+        "chunk_lat": 1,
+    }
+    expected = solve_system(*inputs, **kwargs)
+
+    if lazy:
+        inputs = [
+            value.chunk()
+            if isinstance(value, xr.DataArray) and value.ndim == 3
+            else value
+            for value in inputs
+        ]
+    writer = _RecordingWriter(expected.shape)
+    result = solve_system(*inputs, output_writer=writer, **kwargs)
+
+    assert result is None
+    assert writer.calls == 4  # lon chunks [0:2, 2:3] x lat chunks [0:1, 1:2]
+    np.testing.assert_array_equal(writer.output, expected)
+
+
+def test_legacy_backend_rejects_output_writer():
+    inputs = create_repeated_temperature_backend_inputs(n_days=2, time_step=2)
+    with pytest.raises(ValueError, match="only supported by the scipy_chunked"):
+        solve_system(
+            *inputs,
+            time_step=2,
+            backend="legacy",
+            output_writer=_RecordingWriter((1,)),
+        )

@@ -94,7 +94,17 @@ class IncrementalNetCDFWriter:
         chunk_lat: int,
         attrs: dict[str, Any] | None = None,
         compression: bool = False,
+        dtype: str = "f8",
+        complevel: int = 4,
     ) -> None:
+        """Create the NetCDF file and its variables.
+
+        Args:
+            dtype: NetCDF storage type of the compartment variables, e.g.
+                ``"f8"`` (float64) or ``"f4"`` (float32, half the size).
+            compression: Enable zlib compression of compartment variables.
+            complevel: zlib compression level (1-9), used if ``compression``.
+        """
         output_path.parent.mkdir(parents=True, exist_ok=True)
         self.output_path = output_path
         self.compartments = compartments
@@ -131,9 +141,10 @@ class IncrementalNetCDFWriter:
         for name in compartments:
             self.variables[name] = self.dataset.createVariable(
                 name,
-                "f8",
+                dtype,
                 ("longitude", "latitude", "time"),
                 zlib=compression,
+                complevel=complevel,
                 chunksizes=variable_chunks,
             )
 
@@ -170,6 +181,8 @@ def create_incremental_netcdf_writer(
     chunk_lat: int,
     attrs: dict[str, Any] | None = None,
     compression: bool = False,
+    dtype: str = "f8",
+    complevel: int = 4,
 ) -> IncrementalNetCDFWriter:
     """Create a NetCDF writer for chunked production runs."""
 
@@ -183,4 +196,6 @@ def create_incremental_netcdf_writer(
         chunk_lat=chunk_lat,
         attrs=attrs,
         compression=compression,
+        dtype=dtype,
+        complevel=complevel,
     )

@@ -2048,3 +2048,60 @@ def test_load_initial_conditions_variable_extract_failure(tmp_path, mock_etl_set
             sizes=(2, 2),
             **mock_etl_settings,
         )
+
+
+# ---- Unit tests for select_year
+def _multi_year_dataset(times):
+    return xr.Dataset(
+        {"tp": (("longitude", "latitude", "time"), np.ones((2, 2, len(times))))},
+        coords={"longitude": [0, 1], "latitude": [0, 1], "time": times},
+    )
+
+
+def test_select_year_decoded_time():
+    times = pd.date_range("2014-12-30", "2015-01-02", freq="D")
+    result = Pmodel_initial.select_year(_multi_year_dataset(times), 2015)
+    assert result.sizes["time"] == 2
+    assert (result.time.dt.year == 2015).all()
+
+
+def test_select_year_none_returns_unchanged():
+    ds = _multi_year_dataset(pd.date_range("2014-12-30", "2015-01-02", freq="D"))
+    assert Pmodel_initial.select_year(ds, None) is ds
+
+
+def test_select_year_undecoded_time_keeps_raw_values():
+    ds = _multi_year_dataset([0, 365, 730, 1096])
+    ds["time"].attrs = {
+        "units": "days since 2014-01-01T12:00:00",
+        "calendar": "proleptic_gregorian",
+    }
+    result = Pmodel_initial.select_year(ds, 2016)
+    assert result.time.values.tolist() == [730]
+    assert result.time.attrs["units"] == "days since 2014-01-01T12:00:00"
+
+
+def test_select_year_missing_year_raises():
+    ds = _multi_year_dataset(pd.date_range("2014-01-01", periods=3, freq="D"))
+    with pytest.raises(ValueError, match="no time steps in year 2020"):
+        Pmodel_initial.select_year(ds, 2020)
+
+
+def test_select_year_missing_year_falls_back_to_nearest():
+    times = pd.to_datetime(["2014-07-01", "2015-07-01", "2016-07-01"])
+    result = Pmodel_initial.select_year(
+        _multi_year_dataset(times), 2020, fallback_to_nearest=True
+    )
+    assert result.time.dt.year.values.tolist() == [2016]
+
+
+def test_load_all_data_daily_selects_year(test_dataset_paths, test_etl_settings):
+    full = Pmodel_initial.load_all_data_daily(
+        paths=test_dataset_paths, etl_settings=test_etl_settings
+    )
+    year = int(full.temperature_mean.time.dt.year.values[0])
+    result = Pmodel_initial.load_all_data_daily(
+        paths=test_dataset_paths, etl_settings=test_etl_settings, year=year
+    )
+    assert (result.temperature_mean.time.dt.year == year).all()
+    assert (result.rainfall.time.dt.year == year).all()

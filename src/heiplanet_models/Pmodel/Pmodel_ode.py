@@ -28,6 +28,7 @@ import time
 from collections.abc import Callable, Iterable
 from contextvars import ContextVar
 from dataclasses import dataclass
+from typing import Protocol
 
 import numpy as np
 import xarray as xr
@@ -75,6 +76,15 @@ EXPECTED_LATITUDE_DIMS = ("latitude",)
 # -----------------------------------------------------------------------------
 # Configuration and shared input helpers
 # -----------------------------------------------------------------------------
+
+
+class ChunkWriter(Protocol):
+    """Sink that receives solved spatial chunks from ``solve_system_scipy_chunked``."""
+
+    def write_chunk(
+        self, lon_slice: slice, lat_slice: slice, output_chunk: np.ndarray
+    ) -> None:
+        """Store ``output_chunk`` of shape (lon, lat, variable, time)."""
 
 
 @dataclass(frozen=True)
@@ -916,8 +926,16 @@ def solve_system_scipy_chunked(
     scipy_atol: float = 1e-9,
     chunk_lon: int = 20,
     chunk_lat: int = 20,
-) -> np.ndarray:
-    """Solve with ``solve_ivp`` over spatial chunks using daily forcing."""
+    output_writer: ChunkWriter | None = None,
+) -> np.ndarray | None:
+    """Solve with ``solve_ivp`` over spatial chunks using daily forcing.
+
+    Inputs may be lazy (dask-backed) DataArrays; only one spatial chunk is
+    loaded at a time. If ``output_writer`` is given, each solved chunk is passed
+    to ``output_writer.write_chunk(lon_slice, lat_slice, chunk_output)`` and the
+    full output array is never allocated; the function then returns ``None``.
+    Otherwise the full ``(longitude, latitude, variable, time)`` array is returned.
+    """
 
     _validate_scipy_method(scipy_method)
     steps_per_day = _validate_steps_per_day(time_step)
@@ -942,7 +960,11 @@ def solve_system_scipy_chunked(
     n_lon, n_lat = state_da.shape[:2]
     n_days = temperature_mean_da.shape[2]
 
-    output = np.zeros((n_lon, n_lat, MODEL_VARIABLES, n_days), dtype=np.float64)
+    output = (
+        np.zeros((n_lon, n_lat, MODEL_VARIABLES, n_days), dtype=np.float64)
+        if output_writer is None
+        else None
+    )
     solved_cells_total = 0
     skipped_cells_total = 0
     chunks = list(_spatial_chunks(n_lon, n_lat, chunk_lon, chunk_lat))
@@ -1010,7 +1032,10 @@ def solve_system_scipy_chunked(
             log_capacity_mask=False,
         )
 
-        output[lon_slice, lat_slice, :, :] = chunk_output
+        if output_writer is None:
+            output[lon_slice, lat_slice, :, :] = chunk_output
+        else:
+            output_writer.write_chunk(lon_slice, lat_slice, chunk_output)
         solved_cells_total += solved_cells
         skipped_cells_total += skipped_cells
 
@@ -1200,7 +1225,8 @@ def solve_system(
     scipy_atol: float = 1e-9,
     chunk_lon: int = 20,
     chunk_lat: int = 20,
-) -> np.ndarray:
+    output_writer: ChunkWriter | None = None,
+) -> np.ndarray | None:
     """Solve the mosquito population ODE system with a selected backend.
 
     Parameters
@@ -1208,6 +1234,9 @@ def solve_system(
     time_step:
         Historical name preserved for API compatibility. It represents the
         number of sub-steps per day, not dt.
+    output_writer:
+        Only for ``scipy_chunked``: stream each solved spatial chunk to this
+        writer instead of returning the full output array (returns ``None``).
 
     Notes
     -----
@@ -1230,6 +1259,10 @@ def solve_system(
             "legacy_optimized": solve_system_legacy_optimized,
         }
         if backend in legacy_backends:
+            if output_writer is not None:
+                raise ValueError(
+                    "output_writer is only supported by the scipy_chunked backend."
+                )
             return legacy_backends[backend](
                 state=state,
                 temperature=temperature,
@@ -1255,6 +1288,7 @@ def solve_system(
                 scipy_atol=scipy_atol,
                 chunk_lon=chunk_lon,
                 chunk_lat=chunk_lat,
+                output_writer=output_writer,
             )
 
         raise AssertionError(

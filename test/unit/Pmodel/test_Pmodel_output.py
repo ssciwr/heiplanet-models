@@ -219,3 +219,32 @@ def test_incremental_netcdf_writer_preserves_numeric_time_values(
     with xr.open_dataset(output_path, decode_times=False) as reloaded:
         np.testing.assert_allclose(reloaded.time.values, numeric_time)
         assert "units" not in reloaded.time.attrs
+
+
+def test_incremental_netcdf_writer_float32_compressed(
+    tmp_path,
+    model_input_dummy_datasets,
+    synthetic_state,
+    compartments,
+):
+    output_path = tmp_path / "incremental_f4.nc"
+
+    with create_incremental_netcdf_writer(
+        output_path=output_path,
+        model_data=model_input_dummy_datasets,
+        compartments=compartments,
+        chunk_lon=2,
+        chunk_lat=2,
+        compression=True,
+        dtype="f4",
+    ) as writer:
+        writer.write_chunk(slice(None), slice(None), synthetic_state)
+
+    with xr.open_dataset(output_path) as reloaded:
+        variable = reloaded[compartments[0]]
+        assert variable.dtype == np.float32
+        assert variable.encoding.get("zlib") is True
+        for index, name in enumerate(compartments):
+            np.testing.assert_allclose(
+                reloaded[name].values, synthetic_state[:, :, index, :], rtol=1e-6
+            )

@@ -595,3 +595,36 @@ def test_carrying_capacity_regression(
     # Create xarray DataArray with same structure as result
 
     xr.testing.assert_allclose(result, expected_values, rtol=1e-4, atol=1e-4)
+
+
+def test_carrying_capacity_lazy_matches_eager():
+    """Dask-backed inputs give a lazy result equal to the eager computation."""
+    rng = np.random.default_rng(0)
+    coords = {
+        "longitude": [0.0, 1.0, 2.0, 3.0],
+        "latitude": [10.0, 20.0, 30.0],
+        "time": pd.date_range("2024-01-01", periods=6),
+    }
+    rainfall = xr.DataArray(
+        rng.random((4, 3, 6)).astype(np.float32),
+        dims=("longitude", "latitude", "time"),
+        coords=coords,
+    )
+    population = xr.DataArray(
+        rng.random((4, 3, 2)),
+        dims=("longitude", "latitude", "time"),
+        coords={**coords, "time": pd.date_range("2024-01-01", periods=2)},
+    )
+
+    eager = carrying_capacity(rainfall, population)
+    lazy = carrying_capacity(
+        rainfall.chunk({"longitude": 2, "latitude": 2, "time": 3}),
+        population.chunk({"longitude": 2}),
+    )
+
+    assert lazy.chunks is not None
+    assert lazy.dims == eager.dims
+    xr.testing.assert_identical(lazy.compute(), eager)
+    xr.testing.assert_identical(
+        lazy.isel(longitude=slice(2, 4)).compute(), eager.isel(longitude=slice(2, 4))
+    )

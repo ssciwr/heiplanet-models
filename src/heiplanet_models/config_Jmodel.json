@@ -16,12 +16,12 @@
         "input": [],
         "args": [],
         "kwargs": {
-            "input": "./ERA5land_global_t2m_dailyStats_mean_01Deg_2024_08_data.nc",
-            "output": "./output_jmodel.nc",
+            "input": "era5_data_2014-2018_allm_2t_monthly_unicoords_adjlon_celsius_silver.nc",
+            "output": "./jmodel_2014-2018.nc",
             "r0_path": "./R0_data.csv",
             "run_mode": "forbidden",
             "grid_data_baseurl": "https://gisco-services.ec.europa.eu/distribution/v2/nuts",
-            "year": "2024",
+            "year": "2014",
             "temp_colname": "t2m",
             "out_colname": "R0"
         }
