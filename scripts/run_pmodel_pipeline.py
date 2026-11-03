@@ -1,6 +1,7 @@
 """Run the Pmodel pipeline."""
 
 import argparse
+import dataclasses
 import logging
 import sys
 from pathlib import Path
@@ -14,13 +15,16 @@ from heiplanet_models.Pmodel.Pmodel_initial import (
     load_all_data_daily,
     read_global_settings,
 )
+from heiplanet_models.Pmodel.Pmodel_input import PmodelInput
 from heiplanet_models.Pmodel.Pmodel_ode import (
     SCIPY_METHODS,
     VALID_BACKENDS,
     solve_system,
 )
 from heiplanet_models.Pmodel.Pmodel_output import (
+    assemble_output_filepath,
     build_output_dataset,
+    create_incremental_netcdf_writer,
     save_output_dataset,
 )
 from heiplanet_models.Pmodel.Pmodel_rates_birth import water_hatching
@@ -144,10 +148,89 @@ def display_args(args: argparse.Namespace) -> dict[str, object]:
     return header_values
 
 
-def load_data_for_backend(paths: dict, etl_settings: dict, backend: str):
+def load_data_for_backend(
+    paths: dict, etl_settings: dict, backend: str, year: int | None = None
+):
     if backend == "scipy_chunked":
-        return load_all_data_daily(paths=paths, etl_settings=etl_settings)
-    return load_all_data(paths=paths, etl_settings=etl_settings)
+        return load_all_data_daily(paths=paths, etl_settings=etl_settings, year=year)
+    return load_all_data(paths=paths, etl_settings=etl_settings, year=year)
+
+
+def rechunk_for_regions(
+    model_data: PmodelInput, chunk_lon: int, chunk_lat: int
+) -> PmodelInput:
+    """Align lazy input chunks with the solver's spatial regions.
+
+    Each solver region then maps onto exactly one dask block, so the derived
+    inputs (carrying capacity, hatching, rates) are computed once per region
+    without materialising the global arrays. Eager (NumPy) inputs are unchanged.
+    """
+
+    spec = {"longitude": chunk_lon, "latitude": chunk_lat, "time": -1}
+
+    def rechunk(data_array):
+        if data_array is None or data_array.chunks is None:
+            return data_array
+        return data_array.chunk({d: spec[d] for d in data_array.dims if d in spec})
+
+    return dataclasses.replace(
+        model_data,
+        population_density=rechunk(model_data.population_density),
+        rainfall=rechunk(model_data.rainfall),
+        temperature_mean=rechunk(model_data.temperature_mean),
+    )
+
+
+def solve_and_stream_output(
+    year: int,
+    args: argparse.Namespace,
+    etl_settings: dict,
+    model_data: PmodelInput,
+    carry_capacity,
+    egg_active,
+) -> Path:
+    """Solve region by region and write each region straight to NetCDF.
+
+    The output is written to ``<name>.part`` and renamed only on success, so an
+    interrupted run never leaves a file that looks complete.
+    """
+
+    serving = etl_settings["serving"]
+    output_path = assemble_output_filepath(year=year, **serving)
+    partial_path = output_path.with_name(output_path.name + ".part")
+
+    try:
+        with create_incremental_netcdf_writer(
+            output_path=partial_path,
+            model_data=model_data,
+            compartments=etl_settings["ode_system"]["model_variables"],
+            chunk_lon=args.chunk_lon,
+            chunk_lat=args.chunk_lat,
+            compression=serving.get("compression", True),
+            dtype=serving.get("dtype", "f4"),
+        ) as writer:
+            solve_system(
+                state=model_data.initial_conditions,
+                temperature=None,
+                temperature_mean=model_data.temperature_mean,
+                latitudes=model_data.latitude,
+                carrying_capacity=carry_capacity,
+                egg_activate=egg_active,
+                time_step=etl_settings["ode_system"]["time_step"],
+                backend=args.backend,
+                scipy_method=args.scipy_method,
+                scipy_rtol=args.scipy_rtol,
+                scipy_atol=args.scipy_atol,
+                chunk_lon=args.chunk_lon,
+                chunk_lat=args.chunk_lat,
+                output_writer=writer,
+            )
+    except BaseException:
+        partial_path.unlink(missing_ok=True)
+        raise
+
+    partial_path.replace(output_path)
+    return output_path
 
 
 def temperature_for_backend(model_data, backend: str):
@@ -182,8 +265,11 @@ def run_year(
 
     model_data = stage(
         "Load all data",
-        lambda: load_data_for_backend(paths, etl_settings, args.backend),
+        lambda: load_data_for_backend(paths, etl_settings, args.backend, year),
     )
+    streaming = args.backend == "scipy_chunked"
+    if streaming:
+        model_data = rechunk_for_regions(model_data, args.chunk_lon, args.chunk_lat)
 
     carry_capacity = stage(
         "Calculate carrying capacity",
@@ -200,6 +286,15 @@ def run_year(
             population_data=model_data.population_density,
         ),
     )
+
+    if streaming:
+        # Inputs above are lazy; they are computed region by region while solving.
+        return stage(
+            "Solve ODE system and write output",
+            lambda: solve_and_stream_output(
+                year, args, etl_settings, model_data, carry_capacity, egg_active
+            ),
+        )
 
     ode_solution = stage(
         "Solve ODE system",

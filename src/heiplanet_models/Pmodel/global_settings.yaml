@@ -2,7 +2,7 @@
 # ======                      INGESTION SETTINGS                    ======
 # ========================================================================
 ingestion:
-    path_root_datasets: ".data_heiplanet_db/reference/"
+    path_root_datasets: "/home/iulusoy/projects/onehealth-platform/heiplanet-data/heiplanet_data/.data_heiplanet_db/silver/"
     
     xarray_load_settings:
         chunks: auto
@@ -10,19 +10,19 @@ ingestion:
     filename_components:
         temperature_dataset: 
             #prefix: "milan_temperature_"
-            prefix: "ERA5land_global_t2m_daily_0.5_2024"
+            prefix: "era5_data_daily_2014-01-01-2018-12-31_midnight_2t_tp_daily_unicoords_adjlon_celsius_mm_silver"
             suffix: 
             extension: ".nc"
         rainfall_dataset: 
             #prefix: "milan_rainfall_"
-            prefix: "ERA5land_global_tp_daily_0.5_2024"
+            prefix: "era5_data_daily_2014-01-01-2018-12-31_midnight_2t_tp_daily_unicoords_adjlon_celsius_mm_silver"
             suffix: 
             extension: ".nc"
         human_population_dataset: 
             #prefix: "milan_population_"
-            prefix: "pop_dens_2024_global_0.5_aligned"
+            prefix: "population_histsoc_30arcmin_annual_1901_2021_unicoords_2014-2018_popdens_01deg_silver"
             #suffix: 
-            suffix: ""
+            suffix: 
             extension: ".nc"
 
     initial_conditions:
@@ -37,8 +37,6 @@ transformation:
     temperature_dataset:
         data_variable : "t2m"
         preprocessing:
-            names_dimensions: 
-                "valid_time": "time"
             dimension_order: 
                 - "longitude"
                 - "latitude"
@@ -55,11 +53,8 @@ transformation:
     
     # # ---- Human population Data
     human_population_dataset:
-        data_variable : "dens"
+        data_variable : "total-population-density"
         preprocessing:
-            names_dimensions: 
-                "lon": "longitude"
-                "lat": "latitude"
             dimension_order: 
                 - "longitude"
                 - "latitude"
@@ -73,6 +68,10 @@ transformation:
 # =================================================================
 serving: 
     path_output_datasets: ".data_heiplanet_db/reference"
+    # scipy_chunked streams output to disk; storage type and zlib compression
+    # of the compartment variables ("f4" = float32, "f8" = float64).
+    dtype: "f4"
+    compression: True
     filename_components:
         prefix: "Mosquito_abundance_Global_"
         suffix: 
@@ -96,6 +95,6 @@ ode_system:
 # ======                   EXECUTION SETTINGS                 ======
 # =================================================================
 execution:
-    initial_year: 2024
-    final_year: 2024
+    initial_year: 2015
+    final_year: 2015
     
