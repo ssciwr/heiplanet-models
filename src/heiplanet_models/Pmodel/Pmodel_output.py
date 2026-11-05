@@ -96,6 +96,7 @@ class IncrementalNetCDFWriter:
         compression: bool = False,
         dtype: str = "f8",
         complevel: int = 4,
+        variable_attrs: dict[str, Any] | None = None,
     ) -> None:
         """Create the NetCDF file and its variables.
 
@@ -104,6 +105,8 @@ class IncrementalNetCDFWriter:
                 ``"f8"`` (float64) or ``"f4"`` (float32, half the size).
             compression: Enable zlib compression of compartment variables.
             complevel: zlib compression level (1-9), used if ``compression``.
+            variable_attrs: Attributes set on every compartment variable,
+                e.g. ``{"cell_methods": "time: mean"}``.
         """
         output_path.parent.mkdir(parents=True, exist_ok=True)
         self.output_path = output_path
@@ -147,6 +150,8 @@ class IncrementalNetCDFWriter:
                 complevel=complevel,
                 chunksizes=variable_chunks,
             )
+            for key, value in (variable_attrs or {}).items():
+                self.variables[name].setncattr(key, value)
 
         if attrs:
             for key, value in attrs.items():
@@ -171,6 +176,125 @@ class IncrementalNetCDFWriter:
 
     def __exit__(self, _exc_type, _exc_value, _traceback) -> None:
         self.close()
+
+
+TIME_AGGREGATIONS = ("daily", "monthly_mean")
+
+
+def monthly_groups(time: xr.DataArray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Group a daily time axis into consecutive calendar months.
+
+    Args:
+        time: Daily datetime64 coordinate, sorted ascending.
+
+    Returns:
+        ``(starts, counts, month_starts)``: index of each month's first day,
+        number of days in each month, and each month's first-of-month date.
+
+    Raises:
+        ValueError: If ``time`` is not a datetime coordinate or not sorted.
+    """
+    values = np.asarray(time.values)
+    if not np.issubdtype(values.dtype, np.datetime64):
+        raise ValueError("Monthly aggregation needs a datetime64 time coordinate.")
+    if values.size == 0:
+        raise ValueError("Monthly aggregation needs at least one time step.")
+    if np.any(np.diff(values.astype("int64")) < 0):
+        raise ValueError("Monthly aggregation needs a sorted time coordinate.")
+
+    month_keys = values.astype("datetime64[M]")
+    starts = np.flatnonzero(np.r_[True, month_keys[1:] != month_keys[:-1]])
+    counts = np.diff(np.r_[starts, values.size])
+    month_starts = month_keys[starts].astype("datetime64[ns]")
+    return starts, counts, month_starts
+
+
+class MonthlyMeanWriter:
+    """Chunk writer that averages daily chunks per calendar month.
+
+    Each chunk ``(lon, lat, variable, day)`` is reduced to
+    ``(lon, lat, variable, month)`` before being passed to ``inner``.
+    """
+
+    def __init__(self, inner, time: xr.DataArray) -> None:
+        self.inner = inner
+        self.starts, self.counts, self.month_starts = monthly_groups(time)
+
+    def write_chunk(
+        self, lon_slice: slice, lat_slice: slice, output_chunk: np.ndarray
+    ) -> None:
+        sums = np.add.reduceat(output_chunk, self.starts, axis=-1)
+        self.inner.write_chunk(lon_slice, lat_slice, sums / self.counts)
+
+
+class LastStepWriter:
+    """Chunk writer that passes on only the last time step of each chunk."""
+
+    def __init__(self, inner) -> None:
+        self.inner = inner
+
+    def write_chunk(
+        self, lon_slice: slice, lat_slice: slice, output_chunk: np.ndarray
+    ) -> None:
+        self.inner.write_chunk(lon_slice, lat_slice, output_chunk[..., -1:])
+
+
+class TeeWriter:
+    """Chunk writer that forwards every chunk to several writers."""
+
+    def __init__(self, *writers) -> None:
+        self.writers = writers
+
+    def write_chunk(
+        self, lon_slice: slice, lat_slice: slice, output_chunk: np.ndarray
+    ) -> None:
+        for writer in self.writers:
+            writer.write_chunk(lon_slice, lat_slice, output_chunk)
+
+
+def aggregate_dataset_monthly(dataset: xr.Dataset) -> xr.Dataset:
+    """Average a daily output dataset per calendar month (first-of-month time)."""
+
+    starts, counts, month_starts = monthly_groups(dataset["time"])
+    data_vars = {}
+    for name, data in dataset.data_vars.items():
+        axis = data.get_axis_num("time")
+        sums = np.add.reduceat(data.values, starts, axis=axis)
+        shape = [1] * sums.ndim
+        shape[axis] = counts.size
+        data_vars[name] = (
+            data.dims,
+            sums / counts.reshape(shape),
+            {**data.attrs, "cell_methods": "time: mean"},
+        )
+    coords = {name: coord for name, coord in dataset.coords.items() if name != "time"}
+    coords["time"] = month_starts
+    return xr.Dataset(
+        data_vars,
+        coords=coords,
+        attrs={**dataset.attrs, "time_aggregation": "monthly_mean"},
+    )
+
+
+def final_state_filepath(
+    year: int | None = None, **serving_settings: dict[str, Any]
+) -> Path:
+    """Path of the end-of-run state file next to the model output.
+
+    The file holds the last daily state of every compartment and is used as
+    the initial condition of the following year.
+    """
+    output_path = assemble_output_filepath(year=year, **serving_settings)
+    return output_path.with_name(f"{output_path.stem}_final_state{output_path.suffix}")
+
+
+def output_is_daily(path: Path) -> bool:
+    """Whether a model output file stores daily values (files without the
+    ``time_aggregation`` attribute predate it and are daily)."""
+
+    with Dataset(path, "r") as dataset:
+        aggregation = getattr(dataset, "time_aggregation", "daily")
+    return aggregation == "daily"
 
 
 class FinalStateCollector:
