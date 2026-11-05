@@ -1,12 +1,15 @@
 """Run the Pmodel pipeline."""
 
 import argparse
+import contextlib
 import copy
 import dataclasses
 import logging
 import sys
 from pathlib import Path
 
+import numpy as np
+import xarray as xr
 from rich.logging import RichHandler
 
 from heiplanet_models.Pmodel.Pmodel_initial import (
@@ -23,10 +26,18 @@ from heiplanet_models.Pmodel.Pmodel_ode import (
     solve_system,
 )
 from heiplanet_models.Pmodel.Pmodel_output import (
+    TIME_AGGREGATIONS,
     FinalStateCollector,
+    IncrementalNetCDFWriter,
+    LastStepWriter,
+    MonthlyMeanWriter,
+    TeeWriter,
+    aggregate_dataset_monthly,
     assemble_output_filepath,
     build_output_dataset,
-    create_incremental_netcdf_writer,
+    final_state_filepath,
+    monthly_groups,
+    output_is_daily,
     save_output_dataset,
 )
 from heiplanet_models.Pmodel.Pmodel_rates_birth import water_hatching
@@ -187,18 +198,28 @@ def resolve_initial_conditions(year: int | None, etl_settings: dict) -> Path | N
     """Pick the file whose last time step is used as this year's initial state.
 
     With ``ingestion.initial_conditions.chain_previous_year`` enabled, the
-    previous year's model output is used if it exists. Otherwise the configured
+    previous year's final state file is used if it exists, else the previous
+    year's output if it holds daily values. Otherwise the configured
     ``file_path_initial_conditions`` is used if it exists. ``None`` means the
     model starts from its default initial conditions.
     """
 
     settings = etl_settings["ingestion"].get("initial_conditions") or {}
     if year is not None and settings.get("chain_previous_year", False):
-        previous_output = assemble_output_filepath(
-            year=year - 1, **etl_settings["serving"]
-        )
+        serving = etl_settings["serving"]
+        previous_state = final_state_filepath(year=year - 1, **serving)
+        if previous_state.exists():
+            return previous_state
+        previous_output = assemble_output_filepath(year=year - 1, **serving)
         if previous_output.exists():
-            return previous_output
+            if output_is_daily(previous_output):
+                return previous_output
+            logger.warning(
+                "Cannot chain from %s: it holds monthly means and its final "
+                "state file %s is missing.",
+                previous_output,
+                previous_state,
+            )
 
     configured = settings.get("file_path_initial_conditions")
     if configured and Path(configured).exists():
@@ -282,6 +303,42 @@ def spin_up_initial_conditions(
     return model_data
 
 
+def time_aggregation(etl_settings: dict) -> str:
+    """Return the validated ``serving.time_aggregation`` setting."""
+
+    aggregation = etl_settings["serving"].get("time_aggregation") or "daily"
+    if aggregation not in TIME_AGGREGATIONS:
+        options = ", ".join(TIME_AGGREGATIONS)
+        raise ValueError(
+            f"serving.time_aggregation must be one of: {options}; got {aggregation!r}."
+        )
+    return aggregation
+
+
+def open_final_state_writer(
+    path: Path,
+    model_data: PmodelInput,
+    compartments: list[str],
+    chunk_lon: int,
+    chunk_lat: int,
+) -> IncrementalNetCDFWriter:
+    """Writer for the last daily state (float64, used to chain the next year)."""
+
+    temperature_mean = model_data.temperature_mean
+    return IncrementalNetCDFWriter(
+        output_path=path,
+        longitude=temperature_mean["longitude"],
+        latitude=temperature_mean["latitude"],
+        time=temperature_mean["time"].isel(time=[-1]),
+        compartments=compartments,
+        chunk_lon=chunk_lon,
+        chunk_lat=chunk_lat,
+        attrs={"description": "Pmodel state on the last simulated day"},
+        compression=True,
+        dtype="f8",
+    )
+
+
 def solve_and_stream_output(
     year: int,
     args: argparse.Namespace,
@@ -292,37 +349,111 @@ def solve_and_stream_output(
 ) -> Path:
     """Solve region by region and write each region straight to NetCDF.
 
-    The output is written to ``<name>.part`` and renamed only on success, so an
-    interrupted run never leaves a file that looks complete.
+    Writes the model output (daily or monthly means, ``serving.time_aggregation``)
+    and the final daily state used to chain the next year. Both are written to
+    ``<name>.part`` and renamed only on success, so an interrupted run never
+    leaves files that look complete.
     """
 
     serving = etl_settings["serving"]
+    aggregation = time_aggregation(etl_settings)
+    compartments = etl_settings["ode_system"]["model_variables"]
+    daily_time = model_data.temperature_mean["time"]
+
     output_path = assemble_output_filepath(year=year, **serving)
-    partial_path = output_path.with_name(output_path.name + ".part")
+    state_path = final_state_filepath(year=year, **serving)
+    partial_paths = {
+        path: path.with_name(path.name + ".part") for path in (output_path, state_path)
+    }
+
+    if aggregation == "monthly_mean":
+        _, _, month_starts = monthly_groups(daily_time)
+        output_time = xr.DataArray(month_starts, dims="time")
+        variable_attrs = {"cell_methods": "time: mean"}
+    else:
+        output_time = daily_time
+        variable_attrs = None
 
     try:
-        with create_incremental_netcdf_writer(
-            output_path=partial_path,
-            model_data=model_data,
-            compartments=etl_settings["ode_system"]["model_variables"],
-            chunk_lon=args.chunk_lon,
-            chunk_lat=args.chunk_lat,
-            compression=serving.get("compression", True),
-            dtype=serving.get("dtype", "f4"),
-        ) as writer:
+        with contextlib.ExitStack() as stack:
+            output_writer = stack.enter_context(
+                IncrementalNetCDFWriter(
+                    output_path=partial_paths[output_path],
+                    longitude=model_data.temperature_mean["longitude"],
+                    latitude=model_data.temperature_mean["latitude"],
+                    time=output_time,
+                    compartments=compartments,
+                    chunk_lon=args.chunk_lon,
+                    chunk_lat=args.chunk_lat,
+                    attrs={"time_aggregation": aggregation},
+                    compression=serving.get("compression", True),
+                    dtype=serving.get("dtype", "f4"),
+                    variable_attrs=variable_attrs,
+                )
+            )
+            state_writer = stack.enter_context(
+                open_final_state_writer(
+                    partial_paths[state_path],
+                    model_data,
+                    compartments,
+                    args.chunk_lon,
+                    args.chunk_lat,
+                )
+            )
+            if aggregation == "monthly_mean":
+                output_writer = MonthlyMeanWriter(output_writer, daily_time)
             run_solver(
                 args,
                 etl_settings,
                 model_data,
                 carry_capacity,
                 egg_active,
-                output_writer=writer,
+                output_writer=TeeWriter(output_writer, LastStepWriter(state_writer)),
             )
     except BaseException:
-        partial_path.unlink(missing_ok=True)
+        for partial_path in partial_paths.values():
+            partial_path.unlink(missing_ok=True)
         raise
 
-    partial_path.replace(output_path)
+    for path, partial_path in partial_paths.items():
+        partial_path.replace(path)
+    return output_path
+
+
+def save_output_and_state(
+    year: int | None,
+    args: argparse.Namespace,
+    etl_settings: dict,
+    model_data: PmodelInput,
+    ode_solution,
+) -> Path:
+    """Save in-memory solver output (non-streaming backends) and final state."""
+
+    compartments = etl_settings["ode_system"]["model_variables"]
+    output_dataset = build_output_dataset(
+        state=ode_solution, model_data=model_data, compartments=compartments
+    )
+    aggregation = time_aggregation(etl_settings)
+    if aggregation == "monthly_mean":
+        output_dataset = aggregate_dataset_monthly(output_dataset)
+    else:
+        output_dataset.attrs["time_aggregation"] = aggregation
+
+    output_path = save_output_dataset(
+        dataset=output_dataset, year=year, **etl_settings["serving"]
+    )
+
+    n_lon, n_lat = ode_solution.shape[:2]
+    with open_final_state_writer(
+        final_state_filepath(year=year, **etl_settings["serving"]),
+        model_data,
+        compartments,
+        n_lon,
+        n_lat,
+    ) as state_writer:
+        LastStepWriter(state_writer).write_chunk(
+            slice(None), slice(None), np.asarray(ode_solution)
+        )
     return output_path
 
 
@@ -424,21 +555,10 @@ def run_year(
         lambda: run_solver(args, etl_settings, model_data, carry_capacity, egg_active),
     )
 
-    output_dataset = stage(
-        "Build output dataset",
-        lambda: build_output_dataset(
-            state=ode_solution,
-            model_data=model_data,
-            compartments=etl_settings["ode_system"]["model_variables"],
-        ),
-    )
-
     return stage(
-        "Save output dataset",
-        lambda: save_output_dataset(
-            dataset=output_dataset,
-            year=year,
-            **etl_settings["serving"],
+        "Save output dataset and final state",
+        lambda: save_output_and_state(
+            year, args, etl_settings, model_data, ode_solution
         ),
     )
 

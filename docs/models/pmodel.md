@@ -195,10 +195,11 @@ model_variables:
 
 The initial state of each year is chosen in this order:
 
-1. With `ingestion.initial_conditions.chain_previous_year: True`, the last day
-   of the previous year's output (in `serving.path_output_datasets`), if that
-   file exists. Run years in ascending order so each year continues from the
-   one before.
+1. With `ingestion.initial_conditions.chain_previous_year: True`, the previous
+   year's final state file `<output name>_final_state.nc` (in
+   `serving.path_output_datasets`), if it exists. Failing that, the last day of
+   the previous year's output, but only if that output holds daily values. Run
+   years in ascending order so each year continues from the one before.
 2. `ingestion.initial_conditions.file_path_initial_conditions`, if it points to
    an existing NetCDF file; its final time slice is used.
 3. Otherwise Pmodel generates its default initial-condition array. If
@@ -217,6 +218,16 @@ ingestion:
     chain_previous_year: True
     spinup_years: 1
 ```
+
+`serving.time_aggregation` selects the output time resolution:
+
+- `"monthly_mean"`: one value per calendar month, the arithmetic mean of the
+  daily values (time stamp = first day of the month, `cell_methods = "time:
+  mean"`). The ODE system is still solved daily; only the output is averaged.
+- `"daily"` (default): every simulated day.
+
+Every run also writes `<output name>_final_state.nc` with the state of the
+last simulated day (float64), which is what chaining uses.
 
 For `scipy_chunked`, `serving.dtype` (`"f4"` or `"f8"`) and
 `serving.compression` set the storage type and zlib compression of the output
