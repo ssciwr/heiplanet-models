@@ -1,6 +1,7 @@
 """Run the Pmodel pipeline."""
 
 import argparse
+import copy
 import dataclasses
 import logging
 import sys
@@ -22,6 +23,7 @@ from heiplanet_models.Pmodel.Pmodel_ode import (
     solve_system,
 )
 from heiplanet_models.Pmodel.Pmodel_output import (
+    FinalStateCollector,
     assemble_output_filepath,
     build_output_dataset,
     create_incremental_netcdf_writer,
@@ -181,6 +183,105 @@ def rechunk_for_regions(
     )
 
 
+def resolve_initial_conditions(year: int | None, etl_settings: dict) -> Path | None:
+    """Pick the file whose last time step is used as this year's initial state.
+
+    With ``ingestion.initial_conditions.chain_previous_year`` enabled, the
+    previous year's model output is used if it exists. Otherwise the configured
+    ``file_path_initial_conditions`` is used if it exists. ``None`` means the
+    model starts from its default initial conditions.
+    """
+
+    settings = etl_settings["ingestion"].get("initial_conditions") or {}
+    if year is not None and settings.get("chain_previous_year", False):
+        previous_output = assemble_output_filepath(
+            year=year - 1, **etl_settings["serving"]
+        )
+        if previous_output.exists():
+            return previous_output
+
+    configured = settings.get("file_path_initial_conditions")
+    if configured and Path(configured).exists():
+        return Path(configured)
+    return None
+
+
+def settings_with_initial_conditions(
+    etl_settings: dict, initial_conditions: Path | None
+) -> dict:
+    """Return a copy of the settings pointing at ``initial_conditions``."""
+
+    year_settings = copy.deepcopy(etl_settings)
+    year_settings["ingestion"].setdefault("initial_conditions", {})
+    year_settings["ingestion"]["initial_conditions"]["file_path_initial_conditions"] = (
+        str(initial_conditions) if initial_conditions is not None else None
+    )
+    return year_settings
+
+
+def run_solver(
+    args: argparse.Namespace,
+    etl_settings: dict,
+    model_data: PmodelInput,
+    carry_capacity,
+    egg_active,
+    output_writer=None,
+):
+    """Call ``solve_system`` with the pipeline's inputs and solver options."""
+
+    return solve_system(
+        state=model_data.initial_conditions,
+        temperature=temperature_for_backend(model_data, args.backend),
+        temperature_mean=model_data.temperature_mean,
+        latitudes=model_data.latitude,
+        carrying_capacity=carry_capacity,
+        egg_activate=egg_active,
+        time_step=etl_settings["ode_system"]["time_step"],
+        backend=args.backend,
+        scipy_method=args.scipy_method,
+        scipy_rtol=args.scipy_rtol,
+        scipy_atol=args.scipy_atol,
+        chunk_lon=args.chunk_lon,
+        chunk_lat=args.chunk_lat,
+        output_writer=output_writer,
+    )
+
+
+def spin_up_initial_conditions(
+    n_years: int,
+    args: argparse.Namespace,
+    etl_settings: dict,
+    model_data: PmodelInput,
+    carry_capacity,
+    egg_active,
+) -> PmodelInput:
+    """Run the year ``n_years`` times and start from the resulting final state.
+
+    Only the final state is kept; the spin-up output itself is not written.
+    """
+
+    initial = model_data.initial_conditions
+    for _ in range(n_years):
+        if args.backend == "scipy_chunked":
+            collector = FinalStateCollector(*initial.shape)
+            run_solver(
+                args,
+                etl_settings,
+                model_data,
+                carry_capacity,
+                egg_active,
+                output_writer=collector,
+            )
+            final_state = collector.state
+        else:
+            final_state = run_solver(
+                args, etl_settings, model_data, carry_capacity, egg_active
+            )[..., -1]
+        initial = initial.copy(data=final_state)
+        model_data = dataclasses.replace(model_data, initial_conditions=initial)
+    return model_data
+
+
 def solve_and_stream_output(
     year: int,
     args: argparse.Namespace,
@@ -209,20 +310,12 @@ def solve_and_stream_output(
             compression=serving.get("compression", True),
             dtype=serving.get("dtype", "f4"),
         ) as writer:
-            solve_system(
-                state=model_data.initial_conditions,
-                temperature=None,
-                temperature_mean=model_data.temperature_mean,
-                latitudes=model_data.latitude,
-                carrying_capacity=carry_capacity,
-                egg_activate=egg_active,
-                time_step=etl_settings["ode_system"]["time_step"],
-                backend=args.backend,
-                scipy_method=args.scipy_method,
-                scipy_rtol=args.scipy_rtol,
-                scipy_atol=args.scipy_atol,
-                chunk_lon=args.chunk_lon,
-                chunk_lat=args.chunk_lat,
+            run_solver(
+                args,
+                etl_settings,
+                model_data,
+                carry_capacity,
+                egg_active,
                 output_writer=writer,
             )
     except BaseException:
@@ -263,6 +356,17 @@ def run_year(
     if not paths_exist:
         raise SkipYear("Missing input files.")
 
+    initial_conditions = resolve_initial_conditions(year, etl_settings)
+    stage.console.print(
+        "  Initial conditions: "
+        + (
+            f"last day of {initial_conditions}"
+            if initial_conditions is not None
+            else "model defaults"
+        )
+    )
+    etl_settings = settings_with_initial_conditions(etl_settings, initial_conditions)
+
     model_data = stage(
         "Load all data",
         lambda: load_data_for_backend(paths, etl_settings, args.backend, year),
@@ -287,6 +391,25 @@ def run_year(
         ),
     )
 
+    spinup_years = int(
+        (etl_settings["ingestion"].get("initial_conditions") or {}).get(
+            "spinup_years", 0
+        )
+        or 0
+    )
+    if initial_conditions is None and spinup_years > 0:
+        model_data = stage(
+            f"Spin up initial conditions ({spinup_years} x {year} forcing)",
+            lambda: spin_up_initial_conditions(
+                spinup_years,
+                args,
+                etl_settings,
+                model_data,
+                carry_capacity,
+                egg_active,
+            ),
+        )
+
     if streaming:
         # Inputs above are lazy; they are computed region by region while solving.
         return stage(
@@ -298,21 +421,7 @@ def run_year(
 
     ode_solution = stage(
         "Solve ODE system",
-        lambda: solve_system(
-            state=model_data.initial_conditions,
-            temperature=temperature_for_backend(model_data, args.backend),
-            temperature_mean=model_data.temperature_mean,
-            latitudes=model_data.latitude,
-            carrying_capacity=carry_capacity,
-            egg_activate=egg_active,
-            time_step=etl_settings["ode_system"]["time_step"],
-            backend=args.backend,
-            scipy_method=args.scipy_method,
-            scipy_rtol=args.scipy_rtol,
-            scipy_atol=args.scipy_atol,
-            chunk_lon=args.chunk_lon,
-            chunk_lat=args.chunk_lat,
-        ),
+        lambda: run_solver(args, etl_settings, model_data, carry_capacity, egg_active),
     )
 
     output_dataset = stage(
