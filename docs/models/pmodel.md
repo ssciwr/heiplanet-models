@@ -193,9 +193,35 @@ model_variables:
     - adults
 ```
 
-Set `ingestion.initial_conditions.file_path_initial_conditions` to a NetCDF
-file to start from its final time slice. If it is empty or does not point to an
-existing file, Pmodel generates its default initial-condition array.
+The initial state of each year is chosen in this order:
+
+1. With `ingestion.initial_conditions.chain_previous_year: True`, the last day
+   of the previous year's output (in `serving.path_output_datasets`), if that
+   file exists. Run years in ascending order so each year continues from the
+   one before.
+2. `ingestion.initial_conditions.file_path_initial_conditions`, if it points to
+   an existing NetCDF file; its final time slice is used.
+3. Otherwise Pmodel generates its default initial-condition array. If
+   `ingestion.initial_conditions.spinup_years` is greater than 0, the year is
+   first solved that many times with its own forcing (output discarded) and
+   the real run starts from the resulting final state.
+
+Without chaining or spin-up, every year starts from the defaults, so the
+population restarts on 1 January and tropical regions do not reach a steady
+state within the year.
+
+```yaml
+ingestion:
+  initial_conditions:
+    file_path_initial_conditions:
+    chain_previous_year: True
+    spinup_years: 1
+```
+
+For `scipy_chunked`, `serving.dtype` (`"f4"` or `"f8"`) and
+`serving.compression` set the storage type and zlib compression of the output
+variables. The output is streamed to disk region by region, so memory use does
+not grow with the size of the global output.
 
 ### Inputs
 

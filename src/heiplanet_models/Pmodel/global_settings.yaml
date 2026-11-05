@@ -26,7 +26,14 @@ ingestion:
             extension: ".nc"
 
     initial_conditions:
+        # NetCDF model output whose last time step is the initial state.
         file_path_initial_conditions:
+        # Start each year from the last day of the previous year's output
+        # (serving path), if that file exists; takes precedence over the path above.
+        chain_previous_year: True
+        # If no initial state file is available (e.g. the first year), run the
+        # year this many times first and start from the resulting final state.
+        spinup_years: 1
 
 
 # ========================================================================
@@ -95,6 +102,6 @@ ode_system:
 # ======                   EXECUTION SETTINGS                 ======
 # =================================================================
 execution:
-    initial_year: 2015
-    final_year: 2015
+    initial_year: 2018
+    final_year: 2018
     

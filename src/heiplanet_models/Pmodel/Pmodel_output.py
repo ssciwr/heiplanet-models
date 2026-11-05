@@ -173,6 +173,25 @@ class IncrementalNetCDFWriter:
         self.close()
 
 
+class FinalStateCollector:
+    """Chunk writer that keeps only the last time step of each solved chunk.
+
+    Used for spin-up runs: the full output is discarded and only the final
+    state, shape ``(longitude, latitude, variable)``, is kept in memory.
+    """
+
+    def __init__(self, n_lon: int, n_lat: int, n_variables: int) -> None:
+        self.state = np.zeros((n_lon, n_lat, n_variables), dtype=np.float64)
+
+    def write_chunk(
+        self,
+        lon_slice: slice,
+        lat_slice: slice,
+        output_chunk: np.ndarray,
+    ) -> None:
+        self.state[lon_slice, lat_slice, :] = output_chunk[..., -1]
+
+
 def create_incremental_netcdf_writer(
     output_path: Path,
     model_data,
