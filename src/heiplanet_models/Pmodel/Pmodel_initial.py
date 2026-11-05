@@ -157,7 +157,7 @@ def assemble_filepaths(year: int | None = None, **etl_settings) -> dict[str, Pat
     if year:
         dict_paths = {
             dataset_name: path_root
-            / f"{comp['prefix']}{year}{comp['suffix'] or ''}{comp['extension']}"
+            / f"{comp['prefix']}{comp['suffix'] or ''}{comp['extension']}"
             for dataset_name, comp in filename_components.items()
         }
 
@@ -344,6 +344,71 @@ def align_xarray_datasets(
     except Exception:
         logger.exception("Failed to align coordinates using interpolation.")
         raise
+
+
+def _decoded_time(dataset: xr.Dataset) -> xr.DataArray:
+    """Return the dataset's time coordinate as datetime64, decoding CF units if needed."""
+
+    time = dataset["time"]
+    if np.issubdtype(time.dtype, np.datetime64) or time.dtype == object:
+        return time
+    try:
+        return xr.decode_cf(xr.Dataset(coords={"time": time}))["time"]
+    except Exception as err:
+        raise ValueError(
+            "Cannot select a year: the time coordinate is not a datetime and "
+            f"could not be decoded (attrs: {dict(time.attrs)})."
+        ) from err
+
+
+def select_year(
+    dataset: xr.Dataset,
+    year: int | None,
+    name: str = "dataset",
+    fallback_to_nearest: bool = False,
+) -> xr.Dataset:
+    """Restrict a dataset to the time steps that fall within ``year``.
+
+    The time coordinate may be either decoded (datetime64/cftime) or raw CF
+    numbers with a ``units`` attribute (e.g. loaded with ``decode_times=False``);
+    the original time values are preserved in the returned dataset.
+
+    Args:
+        dataset (xr.Dataset): Dataset with an optional ``time`` dimension.
+        year (int | None): Year to select. ``None`` returns the dataset unchanged.
+        name (str): Dataset name used in log and error messages.
+        fallback_to_nearest (bool): If no time step lies in ``year``, select the
+            time step whose year is closest instead of raising.
+
+    Returns:
+        xr.Dataset: Dataset containing only the selected time steps.
+
+    Raises:
+        ValueError: If no time step lies in ``year`` and ``fallback_to_nearest``
+            is False, or if the time coordinate cannot be interpreted.
+    """
+    if year is None or "time" not in dataset.dims:
+        return dataset
+
+    years = np.asarray(_decoded_time(dataset).dt.year.values)
+    indices = np.flatnonzero(years == year)
+
+    if indices.size == 0:
+        available = sorted(set(years.tolist()))
+        if not fallback_to_nearest:
+            msg = f"{name} has no time steps in year {year} (available years: {available})."
+            logger.error(msg)
+            raise ValueError(msg)
+        indices = np.array([int(np.argmin(np.abs(years - year)))])
+        logger.warning(
+            "%s has no time steps in year %s; using nearest available year %s.",
+            name,
+            year,
+            years[indices[0]],
+        )
+
+    logger.info("Selected %d time steps of %s for year %s.", indices.size, name, year)
+    return dataset.isel(time=indices)
 
 
 def load_temperature_dataset(path_dataset: Path | str, **etl_settings) -> xr.Dataset:
@@ -546,9 +611,13 @@ def load_initial_conditions(
 
 
 def _load_and_align_datasets(
-    paths: dict[str, Any], etl_settings: dict[str, Any]
+    paths: dict[str, Any], etl_settings: dict[str, Any], year: int | None = None
 ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
-    """Load model source datasets and align population data to temperature."""
+    """Load model source datasets, restrict them to ``year`` and align population.
+
+    If ``year`` is given, temperature and rainfall must contain time steps in that
+    year; population falls back to the nearest available year.
+    """
 
     try:
         temperature = load_temperature_dataset(
@@ -575,6 +644,16 @@ def _load_and_align_datasets(
     except Exception:
         logger.exception("Failed to load human_population dataset")
         raise
+
+    # ==== Restrict to the requested year (before alignment, which may interpolate)
+    temperature = select_year(temperature, year, name="temperature dataset")
+    rainfall = select_year(rainfall, year, name="rainfall dataset")
+    human_population = select_year(
+        human_population,
+        year,
+        name="human population dataset",
+        fallback_to_nearest=True,
+    )
 
     # ==== Posprocess datasets
     # --- Human population
@@ -633,11 +712,16 @@ def _extract_common_model_inputs(
     )
 
 
-def load_all_data(paths: dict[str, Any], etl_settings: dict[str, Any]) -> PmodelInput:
-    """Load model inputs for legacy backends with repeated sub-daily temperature."""
+def load_all_data(
+    paths: dict[str, Any], etl_settings: dict[str, Any], year: int | None = None
+) -> PmodelInput:
+    """Load model inputs for legacy backends with repeated sub-daily temperature.
+
+    If ``year`` is given, only the time steps of that year are used.
+    """
 
     temperature, rainfall, human_population = _load_and_align_datasets(
-        paths, etl_settings
+        paths, etl_settings, year=year
     )
     temperature_daily, temperature_mean = create_temperature_daily(
         temperature_dataset=temperature, **etl_settings
@@ -663,18 +747,19 @@ def load_all_data(paths: dict[str, Any], etl_settings: dict[str, Any]) -> Pmodel
 
 
 def load_all_data_daily(
-    paths: dict[str, Any], etl_settings: dict[str, Any]
+    paths: dict[str, Any], etl_settings: dict[str, Any], year: int | None = None
 ) -> PmodelInput:
     """Load model inputs for daily SciPy solving without repeated temperature.
 
     This is the low-memory input path for ``scipy_chunked`` production runs.
     It keeps the legacy ``load_all_data`` behavior unchanged and returns an
     empty ``temperature`` placeholder because the daily SciPy solver uses
-    ``temperature_mean`` directly.
+    ``temperature_mean`` directly. If ``year`` is given, only the time steps
+    of that year are used.
     """
 
     temperature, rainfall, human_population = _load_and_align_datasets(
-        paths, etl_settings
+        paths, etl_settings, year=year
     )
     (
         temperature_mean,
