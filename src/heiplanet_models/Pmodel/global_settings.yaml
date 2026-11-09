@@ -74,7 +74,7 @@ transformation:
 # ======                   SERVING SETTINGS                  ======
 # =================================================================
 serving: 
-    path_output_datasets: ".data_heiplanet_db/reference"
+    path_output_datasets: ".data_heiplanet_db/gold"
     # scipy_chunked streams output to disk; storage type and zlib compression
     # of the compartment variables ("f4" = float32, "f8" = float64).
     dtype: "f4"
@@ -107,5 +107,5 @@ ode_system:
 # =================================================================
 execution:
     initial_year: 2014
-    final_year: 2014
+    final_year: 2018
     
