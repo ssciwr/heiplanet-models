@@ -33,6 +33,9 @@ ingestion:
         chain_previous_year: True
         # If no initial state file is available (e.g. the first year), run the
         # year this many times first and start from the resulting final state.
+        # One year is not enough for the diapause eggs (ed) to settle; use 2+
+        # or discard the first year of a chain (see docs/models/pmodel.md,
+        # "Initial Conditions and Warm-up").
         spinup_years: 1
 
 
