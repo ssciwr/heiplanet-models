@@ -56,11 +56,11 @@ Daily values per grid cell (NetCDF, dimensions longitude × latitude × time):
 
 | Variable | Description | Units |
 |-------|------------|-------|
+| `adults` | Mature adults | mosquitoes/grid cell |
+| `imm` | Immature (emerging) adults | mosquitoes/grid cell |
+| `juv` | Juveniles (larvae and pupae) | mosquitoes/grid cell |
 | `eggs` | Non-diapause eggs | mosquitoes/grid cell |
 | `ed` | Diapause eggs | mosquitoes/grid cell |
-| `juv` | Juveniles (larvae and pupae) | mosquitoes/grid cell |
-| `imm` | Immature (emerging) adults | mosquitoes/grid cell |
-| `adults` | Mature adults | mosquitoes/grid cell |
 
 ## Training Data
 - No model fitting; rate functions taken from published laboratory and field studies on Ae. albopictus life-history traits

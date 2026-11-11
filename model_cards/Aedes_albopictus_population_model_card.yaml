@@ -57,20 +57,20 @@ input_features:
     units: mosquitoes/grid cell
 
 outputs:
+  adults:
+    description: Mature adults
+    units: mosquitoes/grid cell
+  imm:
+    description: Immature (emerging) adults
+    units: mosquitoes/grid cell
+  juv:
+    description: Juveniles (larvae and pupae)
+    units: mosquitoes/grid cell
   eggs:
     description: Non-diapause eggs
     units: mosquitoes/grid cell
-  diapause_eggs:
+  ed:
     description: Diapause eggs
-    units: mosquitoes/grid cell
-  juveniles:
-    description: Juveniles (larvae and pupae)
-    units: mosquitoes/grid cell
-  immature_adults:
-    description: Immature (emerging) adults
-    units: mosquitoes/grid cell
-  adults:
-    description: Mature adults
     units: mosquitoes/grid cell
 
 training_data:
