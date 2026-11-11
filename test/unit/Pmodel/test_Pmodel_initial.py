@@ -619,14 +619,13 @@ def test_check_all_paths_exist_logs_warning_for_non_existing(
 
 # ----  Unit tests for assemble_filepaths
 def test_assemble_filepaths_standard_input(standard_etl_settings):
-    """Test assemble_filepaths with a standard year and configuration."""
-    year = 2024
-    result = Pmodel_initial.assemble_filepaths(year, **standard_etl_settings)
+    """Test assemble_filepaths with a standard configuration."""
+    result = Pmodel_initial.assemble_filepaths(**standard_etl_settings)
 
     expected_root = Path(standard_etl_settings["ingestion"]["path_root_datasets"])
     expected_paths = {
-        "temperature": expected_root / "temp_2024_daily.nc",
-        "rainfall": expected_root / "rain_2024.nc",
+        "temperature": expected_root / "temp__daily.nc",
+        "rainfall": expected_root / "rain_.nc",
     }
 
     assert result == expected_paths
@@ -634,29 +633,17 @@ def test_assemble_filepaths_standard_input(standard_etl_settings):
     assert isinstance(result["rainfall"], Path)
 
 
-def test_assemble_filepaths_different_year(standard_etl_settings):
-    """Test that the year is correctly inserted into filenames."""
-    year = 2025
-    result = Pmodel_initial.assemble_filepaths(year, **standard_etl_settings)
-    expected_root = Path(standard_etl_settings["ingestion"]["path_root_datasets"])
-    expected_paths = {
-        "temperature": expected_root / "temp_2025_daily.nc",
-        "rainfall": expected_root / "rain_2025.nc",
-    }
-    assert result == expected_paths
-
-
 def test_assemble_filepaths_empty_filename_components(standard_etl_settings):
     """Test that an empty dictionary is returned for empty filename_components."""
     standard_etl_settings["ingestion"]["filename_components"] = {}
-    result = Pmodel_initial.assemble_filepaths(2024, **standard_etl_settings)
+    result = Pmodel_initial.assemble_filepaths(**standard_etl_settings)
     assert result == {}
 
 
 def test_assemble_filepaths_raises_key_error_for_missing_ingestion():
     """Test that a KeyError is raised if 'ingestion' key is missing."""
     with pytest.raises(KeyError) as excinfo:
-        Pmodel_initial.assemble_filepaths(2024)
+        Pmodel_initial.assemble_filepaths()
     assert "ingestion" in str(excinfo.value)
 
 
@@ -664,7 +651,7 @@ def test_assemble_filepaths_raises_key_error_for_missing_path_root():
     """Test that a KeyError is raised if 'path_root_datasets' is missing."""
     etl_settings = {"ingestion": {"filename_components": {}}}
     with pytest.raises(KeyError) as excinfo:
-        Pmodel_initial.assemble_filepaths(2024, **etl_settings)
+        Pmodel_initial.assemble_filepaths(**etl_settings)
     assert "path_root_datasets" in str(excinfo.value)
 
 
@@ -677,18 +664,8 @@ def test_assemble_filepaths_raises_key_error_for_malformed_components(
         "prefix"
     )
     with pytest.raises(KeyError) as excinfo:
-        Pmodel_initial.assemble_filepaths(2024, **standard_etl_settings)
+        Pmodel_initial.assemble_filepaths(**standard_etl_settings)
     assert "prefix" in str(excinfo.value)
-
-
-@pytest.mark.parametrize("invalid_year", ["2024", 2024.0])
-def test_assemble_filepaths_raises_type_error_for_non_integer_year(
-    standard_etl_settings, invalid_year
-):
-    """Test that a TypeError is raised for a non-integer year."""
-    with pytest.raises(TypeError) as excinfo:
-        Pmodel_initial.assemble_filepaths(invalid_year, **standard_etl_settings)
-    assert "not an integer" in str(excinfo.value) or excinfo.type is TypeError
 
 
 # ---- Unit tests for load_dataset
