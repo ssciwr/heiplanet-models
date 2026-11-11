@@ -477,7 +477,7 @@ def run_year(
 ) -> Path:
     paths = stage(
         "Assemble filepaths",
-        lambda: assemble_filepaths(year=year, **etl_settings),
+        lambda: assemble_filepaths(**etl_settings),
     )
 
     paths_exist = stage(

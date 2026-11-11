@@ -593,7 +593,7 @@ def build_completed_year_result(
 
 
 def load_paths(year: int, etl_settings: dict[str, Any]) -> dict[str, Path]:
-    return assemble_filepaths(year=year, **etl_settings)
+    return assemble_filepaths(**etl_settings)
 
 
 def load_model_data(

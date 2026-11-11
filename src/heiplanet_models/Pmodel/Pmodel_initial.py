@@ -131,11 +131,13 @@ def check_all_paths_exist(path_dict: dict[str, str | Path]) -> bool:
 
 
 # ---- ETL Functions
-def assemble_filepaths(year: int | None = None, **etl_settings) -> dict[str, Path]:
-    """Assemble file paths for datasets for a given year based on ETL settings.
+def assemble_filepaths(**etl_settings) -> dict[str, Path]:
+    """Assemble file paths for datasets based on ETL settings.
+
+    Each input dataset is a single file (possibly spanning multiple years); the
+    year to simulate is selected later from the loaded data via ``select_year``.
 
     Args:
-        year (int): The year for which to assemble dataset file paths.
         **etl_settings: Arbitrary keyword arguments containing ETL configuration, must include
             'ingestion' with 'path_root_datasets' and 'filename_components'.
 
@@ -144,31 +146,16 @@ def assemble_filepaths(year: int | None = None, **etl_settings) -> dict[str, Pat
 
     Raises:
         KeyError: If required keys are missing in etl_settings.
-        TypeError: If the year is not an integer or settings are malformed.
     """
-
-    if (year is not None) and (not isinstance(year, int)):
-        logger.error(f"Year {year} is not an integer.")
-        raise TypeError
 
     path_root = Path(etl_settings["ingestion"]["path_root_datasets"])
     filename_components = etl_settings["ingestion"]["filename_components"]
 
-    if year:
-        dict_paths = {
-            dataset_name: path_root
-            / f"{comp['prefix']}{comp['suffix'] or ''}{comp['extension']}"
-            for dataset_name, comp in filename_components.items()
-        }
-
-    else:
-        dict_paths = {
-            dataset_name: path_root
-            / f"{comp['prefix']}{comp['suffix'] or ''}{comp['extension']}"
-            for dataset_name, comp in filename_components.items()
-        }
-
-    return dict_paths
+    return {
+        dataset_name: path_root
+        / f"{comp['prefix']}{comp['suffix'] or ''}{comp['extension']}"
+        for dataset_name, comp in filename_components.items()
+    }
 
 
 def load_dataset(path_dataset: Path | str, **kwargs) -> xr.Dataset:
