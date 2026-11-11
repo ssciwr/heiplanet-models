@@ -32,11 +32,11 @@ models:
       - precipitation
       - human_population_density
     outputs:
-      - eggs
-      - diapause_eggs
-      - juveniles
-      - immature_adults
       - adults
+      - imm
+      - juv
+      - eggs
+      - ed
     intended_use:
       - Climate-driven suitability and relative abundance mapping
       - Mechanistic covariate for establishment and early-warning models
