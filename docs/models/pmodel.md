@@ -193,9 +193,115 @@ model_variables:
     - adults
 ```
 
-Set `ingestion.initial_conditions.file_path_initial_conditions` to a NetCDF
-file to start from its final time slice. If it is empty or does not point to an
-existing file, Pmodel generates its default initial-condition array.
+### Initial Conditions and Warm-up (Spin-up)
+
+The model is an ODE system, so every simulated year needs a starting state on
+1 January. The default state (`load_initial_conditions` in `Pmodel_initial.py`)
+is far from realistic: every stage is zero except the diapause eggs `ed`, which
+start at `CONST_K1 * CONST_K2 = 62500` in every grid cell
+(`CONSTANTS_INITIAL_CONDITIONS` in `Pmodel_params.py`). A year started from this
+state shows a transient instead of the real seasonal cycle: populations rebuild
+from nothing over the year, and tropical regions, which have no winter, do not
+reach their steady level.
+
+The pipeline (`scripts/run_pmodel_pipeline.py`, `resolve_initial_conditions`)
+chooses the initial state of each year in this order:
+
+1. With `ingestion.initial_conditions.chain_previous_year: True`, the previous
+   year's final state file `<output name>_final_state.nc` (in
+   `serving.path_output_datasets`), if it exists. Failing that, the last day of
+   the previous year's output, but only if that output holds daily values
+   (a monthly mean is not a state on 31 December). Run years in ascending order
+   so each year continues from the one before.
+2. `ingestion.initial_conditions.file_path_initial_conditions`, if it points to
+   an existing NetCDF file; its final time slice is used.
+3. Otherwise Pmodel starts from the default state above. If
+   `ingestion.initial_conditions.spinup_years` is greater than 0, the year is
+   first solved that many times with its own forcing (output discarded), and
+   the real run starts from the resulting final state. This is the warm-up.
+
+The warm-up therefore only happens for the **first year of a chain**, or for any
+year whose predecessor's final state cannot be found. Every later year starts
+from the real 31 December state of the year before. A warm-up year costs as much
+compute as a simulated year, and the log reports it as
+`Spin up initial conditions (N x <year> forcing)`. When a year is chained, the
+log line `Initial conditions: ..._final_state.nc` shows which file was used.
+
+```yaml
+ingestion:
+  initial_conditions:
+    file_path_initial_conditions:
+    chain_previous_year: True
+    spinup_years: 1
+```
+
+Recommendations:
+
+- Simulate a continuous range of years in one chain, rather than separate runs
+  that each start with a warm-up.
+- To restart a chain part-way through (for example after a failed year), leave
+  the earlier years' `_final_state.nc` files in the output directory and set
+  `execution.initial_year` to the year to restart. If you move the output
+  directory, move the final-state files with it.
+- One warm-up year is **not** enough for the diapause eggs `ed` (see below).
+  Either use `spinup_years: 2` or more, or simulate one extra year before the
+  period of interest and treat it as warm-up.
+
+#### Known Issue: `ed` Not Settled After One Warm-up Year
+
+This was observed in the global 0.1° ERA5 run for 2014–2018 (chained, with
+`spinup_years: 1` for 2014 and monthly-mean output). The active stages (`eggs`,
+`juv`, `imm`, `adults`) had settled after one warm-up year. Their global
+monthly means vary by about ±20% between years, with no trend, and the step
+from December to January is smooth across every year boundary. For example,
+the 2015 final state has a mean of 7.75e6 adults, December 2015 averages
+7.74e6, and January 2016 averages 7.91e6.
+
+The diapause eggs `ed` had not settled. Their January global mean rose every
+year:
+
+| Year | `ed` January mean | `ed` December mean | `adults` January mean |
+| ---- | ----------------- | ------------------ | --------------------- |
+| 2014 | 4.46e8 | 6.03e8 | 7.78e6 |
+| 2015 | 6.19e8 | 6.73e8 | 7.90e6 |
+| 2016 | 6.99e8 | 7.90e8 | 7.91e6 |
+| 2017 | 8.14e8 | 8.21e8 | 9.52e6 |
+| 2018 | 8.40e8 | 6.73e8 | 8.77e6 |
+
+`ed` is the overwintering stock. It builds up over several years, from the
+uniform 62500 of the default state to its regional level. The December value
+fell in 2018, so part of the rise is variation in weather between years. Even
+so, the January value of 2014 is clearly too low. This means:
+
+- 2014 (the first year of the chain) underestimates `ed`. Through spring
+  hatching, it probably also underestimates the early-season populations in
+  temperate regions. Treat 2014 as a warm-up year, or rerun the chain with
+  `spinup_years: 2` or 3.
+- From 2015 onwards, `ed` is still drifting slightly. If results depend on
+  `ed` or on the timing of spring emergence, check the trend before using
+  years close to the start of a chain.
+
+A spin-up repeats the forcing of the first year, so it does not settle exactly
+the way a chain of real years does. To check whether the warm-up was long
+enough, compare the global mean of `ed` in January for successive years, as
+in the table above.
+
+### Output Options
+
+`serving.time_aggregation` selects the output time resolution:
+
+- `"monthly_mean"`: one value per calendar month, the arithmetic mean of the
+  daily values (time stamp = first day of the month, `cell_methods = "time:
+  mean"`). The ODE system is still solved daily; only the output is averaged.
+- `"daily"` (default): every simulated day.
+
+Every run also writes `<output name>_final_state.nc` with the state of the
+last simulated day (float64), which is what chaining uses.
+
+For `scipy_chunked`, `serving.dtype` (`"f4"` or `"f8"`) and
+`serving.compression` set the storage type and zlib compression of the output
+variables. The output is streamed to disk region by region, so memory use does
+not grow with the size of the global output.
 
 ### Inputs
 

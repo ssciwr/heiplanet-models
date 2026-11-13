@@ -593,15 +593,19 @@ def build_completed_year_result(
 
 
 def load_paths(year: int, etl_settings: dict[str, Any]) -> dict[str, Path]:
-    return assemble_filepaths(year=year, **etl_settings)
+    return assemble_filepaths(**etl_settings)
 
 
-def load_model_data(paths: dict[str, Path], etl_settings: dict[str, Any]) -> Any:
-    return load_all_data(paths=paths, etl_settings=etl_settings)
+def load_model_data(
+    paths: dict[str, Path], etl_settings: dict[str, Any], year: int | None = None
+) -> Any:
+    return load_all_data(paths=paths, etl_settings=etl_settings, year=year)
 
 
-def load_model_data_daily(paths: dict[str, Path], etl_settings: dict[str, Any]) -> Any:
-    return load_all_data_daily(paths=paths, etl_settings=etl_settings)
+def load_model_data_daily(
+    paths: dict[str, Path], etl_settings: dict[str, Any], year: int | None = None
+) -> Any:
+    return load_all_data_daily(paths=paths, etl_settings=etl_settings, year=year)
 
 
 def load_data_stage(
@@ -609,9 +613,10 @@ def load_data_stage(
     paths: dict[str, Path],
     etl_settings: dict[str, Any],
     backend: str,
+    year: int | None = None,
 ) -> Any:
     loader = load_model_data_daily if backend == "scipy_chunked" else load_model_data
-    return stage("Load all data", loader, paths, etl_settings)
+    return stage("Load all data", loader, paths, etl_settings, year)
 
 
 def temperature_for_backend(model_data: Any, backend: str) -> Any:
@@ -691,7 +696,7 @@ def run_model_benchmark_stages(
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)
-        model_data = load_data_stage(stage, paths, etl_settings, args.backend)
+        model_data = load_data_stage(stage, paths, etl_settings, args.backend, year)
         capacity = stage(
             "Calculate carrying capacity",
             calculate_carrying_capacity,

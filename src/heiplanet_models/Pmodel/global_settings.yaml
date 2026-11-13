@@ -2,7 +2,7 @@
 # ======                      INGESTION SETTINGS                    ======
 # ========================================================================
 ingestion:
-    path_root_datasets: "data/in/Pratik_datalake"
+    path_root_datasets: "/home/iulusoy/projects/onehealth-platform/heiplanet-data/heiplanet_data/.data_heiplanet_db/silver/"
     
     xarray_load_settings:
         chunks: auto
@@ -10,23 +10,33 @@ ingestion:
     filename_components:
         temperature_dataset: 
             #prefix: "milan_temperature_"
-            prefix: "ERA5land_global_t2m_daily_0.5_"
+            prefix: "era5_data_daily_2014-01-01-2018-12-31_midnight_2t_tp_daily_unicoords_adjlon_celsius_mm_silver"
             suffix: 
             extension: ".nc"
         rainfall_dataset: 
             #prefix: "milan_rainfall_"
-            prefix: "ERA5land_global_tp_daily_0.5_"
+            prefix: "era5_data_daily_2014-01-01-2018-12-31_midnight_2t_tp_daily_unicoords_adjlon_celsius_mm_silver"
             suffix: 
             extension: ".nc"
         human_population_dataset: 
             #prefix: "milan_population_"
-            prefix: "pop_dens_"
+            prefix: "population_histsoc_30arcmin_annual_1901_2021_unicoords_2014-2018_popdens_01deg_silver"
             #suffix: 
-            suffix: "_global_0.5_aligned"
+            suffix: 
             extension: ".nc"
 
     initial_conditions:
+        # NetCDF model output whose last time step is the initial state.
         file_path_initial_conditions:
+        # Start each year from the last day of the previous year's output
+        # (serving path), if that file exists; takes precedence over the path above.
+        chain_previous_year: True
+        # If no initial state file is available (e.g. the first year), run the
+        # year this many times first and start from the resulting final state.
+        # One year is not enough for the diapause eggs (ed) to settle; use 2+
+        # or discard the first year of a chain (see docs/models/pmodel.md,
+        # "Initial Conditions and Warm-up").
+        spinup_years: 1
 
 
 # ========================================================================
@@ -37,8 +47,6 @@ transformation:
     temperature_dataset:
         data_variable : "t2m"
         preprocessing:
-            names_dimensions: 
-                "valid_time": "time"
             dimension_order: 
                 - "longitude"
                 - "latitude"
@@ -55,11 +63,8 @@ transformation:
     
     # # ---- Human population Data
     human_population_dataset:
-        data_variable : "dens"
+        data_variable : "total-population-density"
         preprocessing:
-            names_dimensions: 
-                "lon": "longitude"
-                "lat": "latitude"
             dimension_order: 
                 - "longitude"
                 - "latitude"
@@ -72,7 +77,15 @@ transformation:
 # ======                   SERVING SETTINGS                  ======
 # =================================================================
 serving: 
-    path_output_datasets: "data/out/Pratik_datalake"
+    path_output_datasets: ".data_heiplanet_db/gold"
+    # scipy_chunked streams output to disk; storage type and zlib compression
+    # of the compartment variables ("f4" = float32, "f8" = float64).
+    dtype: "f4"
+    compression: True
+    # "monthly_mean": one value per calendar month (mean of the daily values);
+    # "daily": every simulated day. The last daily state is always saved to
+    # <output name>_final_state.nc and used to chain the next year.
+    time_aggregation: "monthly_mean"
     filename_components:
         prefix: "Mosquito_abundance_Global_"
         suffix: 
@@ -96,6 +109,6 @@ ode_system:
 # ======                   EXECUTION SETTINGS                 ======
 # =================================================================
 execution:
-    initial_year: 2024
-    final_year: 2024
+    initial_year: 2014
+    final_year: 2018
     
